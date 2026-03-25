@@ -2668,7 +2668,6 @@ function handleFile(input){
       Object.keys(GCOL).forEach(k=>delete GCOL[k]);
       Object.keys(ACOL).forEach(k=>delete ACOL[k]);
       ['n0','n1','n2','owner','sponsor'].forEach(id=>{MS_STATE[id]=new Set();});
-  buildAllFilters(ALL_ACT);  // Rebuild all filters to full list
       pmDirty=false;
       if(document.getElementById('pm-unsaved')) document.getElementById('pm-unsaved').classList.remove('show');
       buildAllFilters(ALL_ACT);
@@ -2839,7 +2838,6 @@ async function loadData(){
     }catch(e){ continue; }
   }
   if(!loaded) console.warn('PMO: JSON not found, use Excel upload');
-  buildAllFilters(ALL_ACT);
   ['n0','n1','n2','owner','sponsor'].forEach(id=>{MS_STATE[id]=new Set();});
   buildAllFilters(ALL_ACT);  // Rebuild all filters to full list
   applyFilters();

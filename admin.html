@@ -929,7 +929,7 @@ function loadAdminContracts(){
     planoSel.dataset.prog=progName;
     planoSel.innerHTML='<option value="">— plano —</option>';
     try{
-      const pds=JSON.parse(localStorage.getItem('pmo_pds')||'[]');
+      const pds=JSON.parse(localStorage.getItem('pmo_pds_data')||'[]');
       pds.filter(function(p){return p.n0===progName;}).forEach(function(p){
         const opt=document.createElement('option');
         opt.value=JSON.stringify({n0:p.n0,plano:p.plano});
@@ -945,7 +945,7 @@ function loadAdminContracts(){
   try{key=JSON.parse(planoVal);}catch(e){return;}
 
   try{
-    const pds=JSON.parse(localStorage.getItem('pmo_pds')||'[]');
+    const pds=JSON.parse(localStorage.getItem('pmo_pds_data')||'[]');
     const plan=pds.find(function(p){return p.n0===key.n0&&p.plano===key.plano;});
     const contracts=(plan&&plan.finances&&plan.finances.contratos)||[];
     if(!contracts.length){
@@ -991,12 +991,12 @@ function loadAdminContracts(){
 function adminRemoveContract(key,ctId){
   if(!confirm('Remover este contrato e as facturas associadas?')) return;
   try{
-    const pds=JSON.parse(localStorage.getItem('pmo_pds')||'[]');
+    const pds=JSON.parse(localStorage.getItem('pmo_pds_data')||'[]');
     const plan=pds.find(function(p){return p.n0===key.n0&&p.plano===key.plano;});
     if(!plan||!plan.finances){toast('Plano não encontrado.','var(--red)');return;}
     plan.finances.contratos=(plan.finances.contratos||[]).filter(function(c){return c.id!==ctId;});
     plan.finances.facturas=(plan.finances.facturas||[]).filter(function(f){return f.contrato_id!==ctId;});
-    localStorage.setItem('pmo_pds',JSON.stringify(pds));
+    localStorage.setItem('pmo_pds_data',JSON.stringify(pds));
     toast('Contrato removido.','#3B6D11');
     loadAdminContracts();
   }catch(e){toast('Erro: '+e.message,'var(--red)');}
