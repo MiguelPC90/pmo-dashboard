@@ -473,11 +473,11 @@ tr.hover-row:hover td{background:var(--bg2)}
     </div>
     <div class="ms-wrap gantt-date-filter" style="display:none">
       <div class="ms-label">Data início ≥</div>
-      <input type="date" id="f-date-start" onchange="applyFilters()" style="padding:6px 8px;font-size:12px;border:1px solid var(--border2);border-radius:var(--r);background:var(--bg);color:var(--text);font-family:inherit;width:100%">
+      <input type="date" id="f-date-start" onchange="dApplyFilters()" style="padding:6px 8px;font-size:12px;border:1px solid var(--border2);border-radius:var(--r);background:var(--bg);color:var(--text);font-family:inherit;width:100%">
     </div>
     <div class="ms-wrap gantt-date-filter" style="display:none">
       <div class="ms-label">Data fim ≤</div>
-      <input type="date" id="f-date-end" onchange="applyFilters()" style="padding:6px 8px;font-size:12px;border:1px solid var(--border2);border-radius:var(--r);background:var(--bg);color:var(--text);font-family:inherit;width:100%">
+      <input type="date" id="f-date-end" onchange="dApplyFilters()" style="padding:6px 8px;font-size:12px;border:1px solid var(--border2);border-radius:var(--r);background:var(--bg);color:var(--text);font-family:inherit;width:100%">
     </div>
     <button class="btn" style="align-self:flex-end;font-size:11px;padding:6px 10px" onclick="resetFilters()">&#10005; Limpar</button>
   <div class="ms-wrap" style="max-width:160px">
@@ -571,12 +571,12 @@ tr.hover-row:hover td{background:var(--bg2)}
     </div>
     <div style="overflow-x:auto"><table>
       <thead><tr>
-        <th>Eixo / Plano</th>
-        <th class="c">Total</th><th class="c" style="color:var(--blue)">Conc.</th>
-        <th class="c" style="color:var(--green)">Em dia</th><th class="c" style="color:var(--red)">Atraso</th>
-        <th class="c">Exec.</th><th class="c" style="color:var(--green)">Exec.obj.</th>
-        <th class="c">Conc.geral</th><th class="c" style="color:var(--green)">C.g.obj.</th>
-        <th class="c">Conc.data</th><th class="c" style="color:var(--green)">C.d.obj.</th>
+        <th scope="col">Eixo / Plano</th>
+        <th scope="col" class="c">Total</th><th scope="col" class="c" style="color:var(--blue)">Conc.</th>
+        <th scope="col" class="c" style="color:var(--green)">Em dia</th><th scope="col" class="c" style="color:var(--red)">Atraso</th>
+        <th scope="col" class="c">Exec.</th><th scope="col" class="c" style="color:var(--green)">Exec.obj.</th>
+        <th scope="col" class="c">Conc.geral</th><th scope="col" class="c" style="color:var(--green)">C.g.obj.</th>
+        <th scope="col" class="c">Conc.data</th><th scope="col" class="c" style="color:var(--green)">C.d.obj.</th>
       </tr></thead>
       <tbody id="tbl-eixo"></tbody>
     </table></div>
@@ -592,11 +592,11 @@ tr.hover-row:hover td{background:var(--bg2)}
   <div class="card" style="padding:0;overflow:hidden">
   <div style="overflow-x:auto"><table>
     <thead><tr>
-      <th style="min-width:240px">Designação</th>
-      <th class="c" style="min-width:80px">Estado</th>
-      <th class="c" style="min-width:90px">C / D / A</th>
-      <th class="c" style="min-width:160px">Exec. real / prev.</th>
-      <th class="c" style="white-space:nowrap">Prazo</th>
+      <th scope="col" style="min-width:240px">Designação</th>
+      <th scope="col" class="c" style="min-width:80px">Estado</th>
+      <th scope="col" class="c" style="min-width:90px">C / D / A</th>
+      <th scope="col" class="c" style="min-width:160px">Exec. real / prev.</th>
+      <th scope="col" class="c" style="white-space:nowrap">Prazo</th>
     </tr></thead>
     <tbody id="tbl-act"></tbody>
   </table></div>
@@ -698,7 +698,7 @@ tr.hover-row:hover td{background:var(--bg2)}
 <!-- GESTÃO DE PROJECTOS -->
 <div id="gestao" class="section">
   <div class="pm-toolbar">
-    <input class="pm-search" type="text" id="pm-search" placeholder="Pesquisar actividade..." oninput="renderPMTable()">
+    <input class="pm-search" type="text" id="pm-search" placeholder="Pesquisar actividade..." oninput="dRenderPMTable()">
     <div style="display:flex;gap:6px">
       <button class="chip active" id="pm-lvl-all" onclick="setPmLevel(0,this)">Todos</button>
       <button class="chip" id="pm-lvl-1" onclick="setPmLevel(1,this)">N1</button>
@@ -718,16 +718,15 @@ tr.hover-row:hover td{background:var(--bg2)}
     <div class="pm-table-wrap">
       <table class="pm-table" id="pm-table">
         <thead><tr>
-          <th style="min-width:240px">Designação</th>
-          <th style="text-align:center;width:50px">Nível</th>
-          <th style="text-align:center;width:65px">% Exec.</th>
-          <th style="text-align:center;width:85px">Início</th>
-          <th style="text-align:center;width:85px">Fim</th>
-          <th style="text-align:center;width:85px">Início Rev.</th>
-          <th style="text-align:center;width:85px">Fim Rev.</th>
-          <th style="width:80px">Owner</th>
-          <th style="width:80px">Sponsor</th>
-    
+          <th scope="col" style="min-width:240px">Designação</th>
+          <th scope="col" style="text-align:center;width:50px">Nível</th>
+          <th scope="col" style="text-align:center;width:65px">% Exec.</th>
+          <th scope="col" style="text-align:center;width:85px">Início</th>
+          <th scope="col" style="text-align:center;width:85px">Fim</th>
+          <th scope="col" style="text-align:center;width:85px">Início Rev.</th>
+          <th scope="col" style="text-align:center;width:85px">Fim Rev.</th>
+          <th scope="col" style="width:80px">Owner</th>
+          <th scope="col" style="width:80px">Sponsor</th>
         </tr></thead>
         <tbody id="pm-tbody"></tbody>
       </table>
@@ -1153,9 +1152,17 @@ tr.hover-row:hover td{background:var(--bg2)}
 </div>
 
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- TODO(SRI): preencher integrity com o hash correcto.
+     Comando: curl -s <url> | openssl dgst -sha384 -binary | openssl base64 -A
+     Ou visitar: https://cdnjs.com/libraries/Chart.js/4.4.1 e https://cdnjs.com/libraries/xlsx/0.18.5 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"
+        crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"
+        crossorigin="anonymous"></script>
 <script>
+// ── DEBOUNCE UTILITY ──────────────────────────────────────────────────────────
+function debounce(fn,ms){let t;return function(){clearTimeout(t);t=setTimeout(fn,ms);};}
+
 // ── DATA ──────────────────────────────────────────────────────────────────────
 let ALL_ACT=[];
 
@@ -1251,11 +1258,7 @@ function adjustSpacer(){
 }
 window.addEventListener('resize',adjustSpacer);
 window.addEventListener('load',adjustSpacer);
-document.addEventListener('DOMContentLoaded',function(){
-  adjustSpacer();
-  setTimeout(adjustSpacer,100);
-  setTimeout(adjustSpacer,500);
-});
+document.addEventListener('DOMContentLoaded',adjustSpacer);
 // Use ResizeObserver for dynamic height changes
 if(typeof ResizeObserver!=='undefined'){
   const ftEl=document.querySelector('.fixed-top');
@@ -1271,12 +1274,13 @@ function buildMs(id,vals){
   [...cur].forEach(v=>{if(!vals.includes(v))cur.delete(v);});
   dd.innerHTML='';
   // For N1 filter: show N0 group separators
+  // Pre-build Map to avoid O(n²) lookup inside forEach
+  const n1ToN0 = id==='n1' ? new Map(ALL_ACT.map(function(d){return [d.n1, d.n0||''];})) : null;
   let lastN0 = null;
   vals.forEach(function(v){
     if(id==='n1'){
       // Find which N0 this N1 belongs to
-      const entry = ALL_ACT.find(function(d){return d.n1===v;});
-      const n0 = entry ? (entry.n0||'') : '';
+      const n0 = n1ToN0.get(v) || '';
       const n0s = MS_STATE['n0']||new Set();
       if(n0 && n0!==lastN0 && (!n0s.size || n0s.size>1)){
         // Add N0 separator
@@ -1294,7 +1298,7 @@ function buildMs(id,vals){
       updateMsLabel(id);
       if(id==='n0'){cascadeN1();}
       else if(id==='n1'){cascadeN2();}
-      applyFilters();
+      dApplyFilters();
     });
     const sp=document.createElement('span');sp.textContent=v;
     if(id==='n1') sp.style.paddingLeft='4px';
@@ -1309,15 +1313,15 @@ function buildMs(id,vals){
 function toggleMsVal(id,val,cb){
   if(cb.checked)MS_STATE[id].add(val);else MS_STATE[id].delete(val);
   updateMsLabel(id);
-  if(id==='n1'){cascadeN2();} 
-  applyFilters();
+  if(id==='n1'){cascadeN2();}
+  dApplyFilters();
 }
 function clearMs(id){
   MS_STATE[id]=new Set();
   const vals=[...document.querySelectorAll('#ms-'+id+' .ms-option span')].map(s=>s.textContent);
   buildMs(id,vals);
   if(id==='n1')cascadeN2();
-  applyFilters();
+  dApplyFilters();
 }
 function updateMsLabel(id){
   const s=MS_STATE[id],lbl=document.getElementById('ms-'+id+'-lbl');
@@ -1340,18 +1344,6 @@ document.addEventListener('click',e=>{
   if(!e.target.closest('.ms-wrap') && !e.target.closest('.ms-dropdown'))
     document.querySelectorAll('.ms-dropdown').forEach(d=>d.classList.remove('open'));
 });
-
-function cascadeN1(){
-  // When N0 changes, filter available N1s
-  const n0s=MS_STATE['n0'];
-  let base=ALL_ACT;
-  if(n0s&&n0s.size>0) base=base.filter(function(d){return n0s.has(d.n0||'');});
-  // Remove any N1 selections that no longer apply
-  const validN1s=new Set(base.map(function(d){return d.n1;}));
-  if(MS_STATE['n1']) [...MS_STATE['n1']].forEach(function(v){if(!validN1s.has(v))MS_STATE['n1'].delete(v);});
-  buildMs('n1', sortByHierarchy([...new Set(base.map(function(d){return d.n1;}))], base, 'n1', 'id1'));
-  cascadeN2();
-}
 
 function cascadeN1(){
   // When N0 changes, filter N1 and N2 options accordingly
@@ -2050,8 +2042,8 @@ function buildPdsSelector(){
     src.map(function(p,si){
       // Store id0_id2 composite key as value — stable across re-imports
       const key=(p.id0||'')+'_'+p.id2;
-      const prefix=(p.n0?p.n0+' › ':'')+p.n1+' › ';
-      return '<option value="'+key+'">'+prefix+p.plano+'</option>';
+      const prefix=(p.n0?esc(p.n0)+' › ':'')+esc(p.n1)+' › ';
+      return '<option value="'+esc(key)+'">'+prefix+esc(p.plano)+'</option>';
     }).join('');
   // Restore previous selection if still valid
   if(pdsCurrentKey){
@@ -2668,7 +2660,6 @@ function handleFile(input){
       Object.keys(GCOL).forEach(k=>delete GCOL[k]);
       Object.keys(ACOL).forEach(k=>delete ACOL[k]);
       ['n0','n1','n2','owner','sponsor'].forEach(id=>{MS_STATE[id]=new Set();});
-  buildAllFilters(ALL_ACT);  // Rebuild all filters to full list
       pmDirty=false;
       if(document.getElementById('pm-unsaved')) document.getElementById('pm-unsaved').classList.remove('show');
       buildAllFilters(ALL_ACT);
@@ -2839,7 +2830,6 @@ async function loadData(){
     }catch(e){ continue; }
   }
   if(!loaded) console.warn('PMO: JSON not found, use Excel upload');
-  buildAllFilters(ALL_ACT);
   ['n0','n1','n2','owner','sponsor'].forEach(id=>{MS_STATE[id]=new Set();});
   buildAllFilters(ALL_ACT);  // Rebuild all filters to full list
   applyFilters();
@@ -3607,6 +3597,9 @@ function populateHierarchyFromRow(r){
   document.getElementById('pf-id2').value = r.id2||'';
 }
 
+// Debounced versions — evita re-renders em cascata durante interacção rápida
+const dApplyFilters = debounce(applyFilters, 120);
+const dRenderPMTable = debounce(renderPMTable, 150);
 
 // ── GESTÃO PDS ────────────────────────────────────────────────────────────────
 // PDS data structure extended with structured items (arrays with text+date+status)
@@ -3682,8 +3675,8 @@ function initGPDS(){
     ALL_PDS.map(function(p){
       const key=(p.id0||'')+'_'+p.id2;
       const prefix = (p.n0 ? esc(p.n0)+' › ' : '') + (p.n1 ? esc(p.n1)+' › ' : '');
-      return '<option value="'+key+'">'+prefix+esc(p.plano)+'</option>';
-    }).join('');;
+      return '<option value="'+esc(key)+'">'+prefix+esc(p.plano)+'</option>';
+    }).join('');
 }
 
 function loadGPDS(){
@@ -3893,8 +3886,8 @@ function initGRisk(){
     ALL_PDS.map(function(p){
       const key=(p.id0||'')+'_'+p.id2;
       const prefix = (p.n0 ? esc(p.n0)+' › ' : '') + (p.n1 ? esc(p.n1)+' › ' : '');
-      return '<option value="'+key+'">'+prefix+esc(p.plano)+'</option>';
-    }).join('');;
+      return '<option value="'+esc(key)+'">'+prefix+esc(p.plano)+'</option>';
+    }).join('');
 }
 
 function getCurrentRiskPDS(){
@@ -4707,8 +4700,8 @@ function initGFin(){
   sel.innerHTML='<option value="">— seleccionar plano —</option>'+
     ALL_PDS.map(function(p){
       const key=(p.id0||'')+'_'+p.id2;
-      const prefix=(p.n0?p.n0+' › ':'')+p.n1+' › ';
-      return '<option value="'+key+'">'+prefix+p.plano+'</option>';
+      const prefix=(p.n0?esc(p.n0)+' › ':'')+esc(p.n1)+' › ';
+      return '<option value="'+esc(key)+'">'+prefix+esc(p.plano)+'</option>';
     }).join('');
   const sec=document.getElementById('gestao-financeira');
   if(!sec._finDelegate){
@@ -5201,8 +5194,8 @@ function initExecFin(){
     ALL_PDS.filter(function(p){ return p.finances && (p.finances.rubricas&&p.finances.rubricas.length || p.finances.contratos&&p.finances.contratos.length); })
     .map(function(p){
       const key = (p.id0||'')+'_'+p.id2;
-      const prefix = (p.n0?p.n0+' › ':'')+p.n1+' › ';
-      return '<option value="'+key+'">'+prefix+p.plano+'</option>';
+      const prefix = (p.n0?esc(p.n0)+' › ':'')+esc(p.n1)+' › ';
+      return '<option value="'+esc(key)+'">'+prefix+esc(p.plano)+'</option>';
     }).join('');
   selP.value = curP;
 
