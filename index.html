@@ -18,6 +18,7 @@
   --r:8px;--rl:12px;
   --blue:#185FA5;--red:#A32D2D;--red-bar:#E24B4A;--amber:#854F0B;
 }
+body.dark{--bg:#1a1a1e;--bg2:#242428;--bg3:#2e2e32;--text:#e8e8e4;--text2:#a0a09a;--text3:#606058;--border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.15)}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg3);color:var(--text);font-size:14px;min-height:100vh;padding-top:0}
 
 /* ── FIXED HEADER ── */
@@ -109,7 +110,7 @@ tr.hover-row:hover td{background:var(--bg2)}
 .gantt-table .g-sticky-pct{position:sticky;left:204px;z-index:2;background:var(--bg);}
 .gantt-table .g-sticky-st{position:sticky;left:250px;z-index:2;background:var(--bg);}
 .gantt-table{border-collapse:collapse;font-size:12px;min-width:800px;width:100%}
-.gantt-table th{background:var(--navy);color:#fff;padding:6px 8px;font-size:10px;font-weight:500;white-space:nowrap;border-right:1px solid rgba(255,255,255,.12)}
+.gantt-table th{background:var(--navy);color:#fff;padding:6px 8px;font-size:10px;font-weight:500;white-space:nowrap;border-right:1px solid rgba(255,255,255,.12);position:sticky;top:0;z-index:3}
 .gantt-table td{padding:4px 8px;border-bottom:1px solid var(--border);vertical-align:middle;white-space:nowrap}
 .gantt-table tr:hover td{background:rgba(0,46,94,.04)}
 .gantt-row-n1 td{background:rgba(0,46,94,.07);font-weight:700;color:var(--navy)}
@@ -1479,8 +1480,8 @@ function getSnapPrev(snap){
   const n0s = MS_STATE['n0']||new Set();
   const n1s = MS_STATE['n1']||new Set();
   const n2s = MS_STATE['n2']||new Set();
-  // Don't show delta when a single N2 (project) is selected — no comparable history
-  if(n2s.size>=1) return null;
+  // Don't show delta when N1 or N2 selected — snapshots only have N0 granularity
+  if(n2s.size>=1 || n1s.size>=1) return null;
   // Use per-N0 snapshot when single program selected
   if(n0s.size===1){
     const n0 = [...n0s][0];
@@ -1950,7 +1951,7 @@ function renderGantt(data){
     <th rowspan="2" style="text-align:center;width:72px">Fim</th>
     <th rowspan="2" style="text-align:center;width:76px">Estado</th>
     <th colspan="${validMths.length}" style="text-align:center">Timeline</th></tr><tr>`;
-  validMths.forEach((mo,i)=>{html+=`<th class="gantt-month-hdr" style="width:${validMw[i].toFixed(1)}%">${String(mo.m+1).padStart(2,"0")}/${String(mo.y).slice(2)}{mo.y}</span></th>`;});
+  validMths.forEach((mo,i)=>{html+=`<th class="gantt-month-hdr" style="width:${validMw[i].toFixed(1)}%">${String(mo.m+1).padStart(2,"0")}/${String(mo.y).slice(2)}</th>`;});
   html+=`</tr></thead><tbody>`;
 
   const barColor=(r)=>{
@@ -1959,6 +1960,28 @@ function renderGantt(data){
     if(r.status==='Em dia')return green;
     return redBar;
   };
+
+  // Pre-compute aggregate status for parent rows from N4 children
+  function aggregateStatus(arr){
+    if(!arr||!arr.length) return '';
+    if(arr.every(function(s){return s==='Concluído';})) return 'Concluído';
+    if(arr.some(function(s){return s==='Em atraso';})) return 'Em atraso';
+    return 'Em dia';
+  }
+  const parentStatus={};
+  data.forEach(function(row,idx){
+    if(row.nivel!==4||!row.status) return;
+    data.forEach(function(par,pi){
+      if(par.nivel>=4) return;
+      const n=par.nivel;
+      if(n>=1&&par.n1!==row.n1) return;
+      if(n>=2&&par.n2!==row.n2) return;
+      if(n>=3&&par.n3!==row.n3) return;
+      if(n===0&&par.n0&&row.n0&&par.n0!==row.n0) return;
+      if(!parentStatus[pi]) parentStatus[pi]=[];
+      parentStatus[pi].push(row.status);
+    });
+  });
 
   data.forEach((row,idx)=>{
     if(!gIsVisible(data,idx))return;
@@ -1969,10 +1992,12 @@ function renderGantt(data){
     const col=GCOL[idx];
     const toggle=canT?`<button class="g-toggle" onclick="gToggle(${idx})">${col?'▶':'▼'}</button> `:'  ';
 
-    const s=SC[row.status];
-    const statCell=row.status?`<span class="badge" style="background:${s.bg};color:${s.tc};font-size:10px">${row.status}</span>`:'—';
+    const rowSt=row.nivel===4?row.status:aggregateStatus(parentStatus[idx]);
+    const s=SC[rowSt];
+    const statCell=rowSt?`<span class="badge" style="background:${s.bg};color:${s.tc};font-size:10px">${rowSt}</span>`:'—';
     const startD=row.rs||row.bs,endD=row.rf||row.bf;
-    const dd=d=>d?d.substring(5).replace('-','/'):'—';
+    // Formato MM/AA (mês/ano abreviado)
+    const dd=d=>{if(!d)return'—';const p=d.split('-');return p[1]+'/'+p[0].slice(2);};
 
     // Base dates (planning) and Real dates (actual) - use real when available
     const bl=ganttPct(row.bs,row.bf,rStart,rMs);          // baseline
@@ -2028,18 +2053,9 @@ function pdsNavigate(dir){
 function buildPdsSelector(){
   const sel=document.getElementById('pds-selector');
   if(!sel) return;
-  // Always show ALL_PDS but filter by active n0/n1 selections
-  const n0s=MS_STATE['n0']||new Set();
-  const n1s=MS_STATE['n1']||new Set();
-  const n2s=MS_STATE['n2']||new Set();
-  const src=ALL_PDS.filter(function(p){
-    if(n0s.size&&!n0s.has(p.n0||'')) return false;
-    if(n1s.size&&!n1s.has(p.n1)) return false;
-    if(n2s.size&&!n2s.has(p.plano.trim())) return false;
-    return true;
-  });
+  // Use fPDS which is already filtered correctly by applyFilters() (n0/n1/n2/owner/sponsor)
   sel.innerHTML='<option value="">— seleccionar plano —</option>'+
-    src.map(function(p,si){
+    fPDS.map(function(p,si){
       // Store id0_id2 composite key as value — stable across re-imports
       const key=(p.id0||'')+'_'+p.id2;
       const prefix=(p.n0?esc(p.n0)+' › ':'')+esc(p.n1)+' › ';
@@ -2053,9 +2069,14 @@ function buildPdsSelector(){
 }
 
 function pdsNav(dir){
-  if(!ALL_PDS.length) return;
-  pdsIdx=((pdsIdx+dir)+ALL_PDS.length)%ALL_PDS.length;
-  document.getElementById('pds-selector').value=pdsIdx;
+  const sel=document.getElementById('pds-selector');
+  if(!sel) return;
+  const opts=[...sel.options].filter(function(o){return o.value!=='';});
+  if(!opts.length) return;
+  const cur=opts.findIndex(function(o){return o.value===sel.value;});
+  const next=Math.max(0,Math.min(opts.length-1,(cur<0?0:cur)+dir));
+  sel.value=opts[next].value;
+  pdsCurrentKey=sel.value;
   renderPDS();
 }
 
@@ -2133,10 +2154,10 @@ function renderPDS(){
           +'<th style="text-align:center;padding:5px 6px;border-bottom:1px solid var(--border);color:var(--text2);font-size:10px;font-weight:500">Estado</th>'
           +'</tr></thead><tbody>'+rows+'</tbody></table>';
       } else {
-        body=items.map(function(it){ return '<div style="padding:4px 0;border-bottom:1px solid var(--border);font-size:13px;color:var(--text2);line-height:1.5">'+esc(it.text)+'</div>'; }).join('');
+        body=items.map(function(it){ return '<div style="padding:4px 0;border-bottom:1px solid var(--border);font-size:13px;color:var(--text2);line-height:1.5">'+mdToHtml(it.text)+'</div>'; }).join('');
       }
     } else {
-      body=isNA(p[s.key])?'<div style="color:var(--text3);font-style:italic;font-size:13px">N/A</div>':'<div style="font-size:13px;color:var(--text2);line-height:1.7;white-space:pre-line">'+esc(p[s.key]||'')+'</div>';
+      body=isNA(p[s.key])?'<div style="color:var(--text3);font-style:italic;font-size:13px">N/A</div>':'<div style="font-size:13px;color:var(--text2);line-height:1.7">'+mdToHtml(p[s.key]||'')+'</div>';
     }
     return '<div class="card" style="margin-bottom:0">'
       +'<div class="card-title" style="margin-bottom:.75rem"><span style="display:inline-block;width:3px;height:13px;background:'+s.color+';border-radius:2px;margin-right:6px;vertical-align:middle;border:none"></span><span style="color:'+s.color+'">'+s.label+'</span></div>'
@@ -2234,6 +2255,8 @@ function switchTab(id,btn){
       });
     }
   }
+  if(id==='exec-fin'){ initExecFin(); renderExecFin(); }
+  if(id==='gestao-financeira'){ initGFin(); }
   if(id==='gestao'){initPM();}
   if(id==='gestao-pds'){
     ensurePDSItems && ensurePDSItems();
@@ -2674,9 +2697,10 @@ function handleFile(input){
       // Rebuild PDS/Risk selectors
       ensurePDSItems();
       if(document.getElementById('gpds-selector')) initGPDS();
-    if(document.getElementById('gfin-selector')) initGFin();
+      if(document.getElementById('gfin-selector')) initGFin();
       if(document.getElementById('grisk-selector')) initGRisk();
       if(document.getElementById('pds-selector')) buildPdsSelector();
+      if(document.getElementById('ef-plano')){ initExecFin(); renderExecFin(); }
       const totalContratos=pPDS.reduce(function(s,p){return s+(p.finances&&p.finances.contratos?p.finances.contratos.length:0);},0);
       const totalFact=pPDS.reduce(function(s,p){return s+(p.finances&&p.finances.facturas?p.finances.facturas.length:0);},0);
       const totalRub=pPDS.reduce(function(s,p){return s+(p.finances&&p.finances.rubricas?p.finances.rubricas.length:0);},0);
@@ -2839,6 +2863,7 @@ async function loadData(){
     if(document.getElementById('gfin-selector')) initGFin();
     if(document.getElementById('grisk-selector')) initGRisk();
     if(document.getElementById('pds-selector')) buildPdsSelector();
+    if(document.getElementById('ef-plano')){ initExecFin(); renderExecFin(); }
   }, 100);
   // Store program/eixo list for Admin page
   try{
@@ -4863,7 +4888,7 @@ function renderOrcamento(p){
     });
 
     html+='<tr style="background:var(--bg2);font-weight:700">'
-      +'<td>Total</td><td></td>'
+      +'<td>Total</td><td></td><td></td>'
       +anos.map(function(a){return '<td style="text-align:right">'+fmtEur(anoTotals[a])+'</td>';}).join('')
       +'<td style="text-align:right;color:var(--navy)">'+fmtEur(grandTotal)+'</td>'
       +'<td colspan="3"></td></tr>';
@@ -4959,8 +4984,8 @@ function renderContratos(p){
         +'<div><div class="fin-section-title" style="margin:0 0 3px">Data adjudicação</div>'
         +'<input type="date" class="fin-input" style="text-align:left" data-ci="'+ci+'" data-field="data_adj" value="'+(ct.data_adj||'')+'"></div>'
         +(ct.moeda!==getBaseMoeda()
-          ? '<div><div class="fin-section-title" style="margin:0 0 3px">Câmbio provisório <span style="color:var(--text3);font-weight:400">('+ct.moeda+' → '+getBaseMoeda()+')</span></div>'
-            +'<input class="fin-input" data-ci="'+ci+'" data-field="cambio_ref" placeholder="Ex: 920.50" value="'+(ct.cambio_ref||'')+'"></div>'
+          ? '<div style="grid-column:1/-1"><div class="fin-section-title" style="margin:0 0 3px">Câmbio provisório <span style="color:var(--text3);font-weight:400">('+ct.moeda+' → '+getBaseMoeda()+')</span></div>'
+            +'<input class="fin-input" style="max-width:200px" data-ci="'+ci+'" data-field="cambio_ref" placeholder="Ex: 920.50" value="'+(ct.cambio_ref||'')+'"></div>'
           : '')
         +'</div>'
         // Summary
@@ -5131,8 +5156,8 @@ function saveGFin(){
   }catch(e){}
   showToast('Informação financeira guardada.','navy');
   // Refresh EF if visible
-  if(document.getElementById('exec-fin')&&document.getElementById('exec-fin').style.display!=='none'){
-    renderExecFin();
+  if(document.getElementById('exec-fin')?.classList.contains('active')){
+    initExecFin(); renderExecFin();
   }
 }
 

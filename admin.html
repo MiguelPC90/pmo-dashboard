@@ -673,6 +673,8 @@ function adminAddEixo(){
 }
 
 // ── FINANCEIRO ────────────────────────────────────────────────────────────────
+function getCatsObj(prog){ return Array.isArray(prog?.finCats) ? prog.finCats : []; }
+
 function renderFinAdmin(){
   const wrap=document.getElementById('admin-fin-list');
   const progs=CFG.programs||[];
@@ -695,18 +697,29 @@ function renderFinAdmin(){
       +'<div class="arow"><label>Anos de gestão <span style="font-weight:400;text-transform:none;color:var(--text3)">(separados por vírgula)</span></label>'
       +'<input class="ainput" data-pi="'+pi+'" data-field="finAnos" value="'+esc(anos)+'" placeholder="2025, 2026, 2027" style="max-width:300px"></div>'
       +'<div class="fin-section-title" style="margin:12px 0 6px">Categorias de custo</div>'
-      +'<div id="fin-cats-'+pi+'">'
+      +'<table style="width:100%;border-collapse:collapse;font-size:13px" id="fin-cats-'+pi+'">'
+      +'<thead><tr>'
+      +'<th style="text-align:left;padding:5px 8px;border-bottom:2px solid var(--border);color:var(--text2);font-size:11px;font-weight:600">Nome</th>'
+      +'<th style="text-align:left;padding:5px 8px;border-bottom:2px solid var(--border);color:var(--text2);font-size:11px;font-weight:600;width:110px">Tipo</th>'
+      +'<th style="padding:5px 8px;border-bottom:2px solid var(--border);width:40px"></th>'
+      +'</tr></thead><tbody>'
       +cats.map(function(c,ci){
-        return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">'
-          +'<input class="ainput" style="flex:1;max-width:200px" data-pi="'+pi+'" data-ci="'+ci+'" data-field="cat_nome" value="'+esc(c.nome)+'">'
-          +'<select class="ainput" style="max-width:100px" data-pi="'+pi+'" data-ci="'+ci+'" data-field="cat_capex">'
+        return '<tr>'
+          +'<td style="padding:4px 8px;border-bottom:1px solid var(--border)">'
+          +'<input class="ainput" style="width:100%" data-pi="'+pi+'" data-ci="'+ci+'" data-field="cat_nome" value="'+esc(c.nome)+'">'
+          +'</td>'
+          +'<td style="padding:4px 8px;border-bottom:1px solid var(--border)">'
+          +'<select class="ainput" style="width:100%" data-pi="'+pi+'" data-ci="'+ci+'" data-field="cat_capex">'
           +'<option value="0"'+(c.capex?'':' selected')+'>OPEX</option>'
           +'<option value="1"'+(c.capex?' selected':'')+'>CAPEX</option>'
           +'</select>'
+          +'</td>'
+          +'<td style="padding:4px 8px;border-bottom:1px solid var(--border);text-align:center">'
           +'<button class="abtn abtn-sm abtn-danger" onclick="removeFinCat('+pi+','+ci+')">✕</button>'
-          +'</div>';
+          +'</td>'
+          +'</tr>';
       }).join('')
-      +'</div>'
+      +'</tbody></table>'
       +'<button class="abtn abtn-sm" style="margin-top:6px" onclick="addFinCat('+pi+')">+ Categoria</button>'
       +'</div>';
   }).join('');
