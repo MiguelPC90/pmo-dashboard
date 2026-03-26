@@ -951,6 +951,7 @@ tr.hover-row:hover td{background:var(--bg2)}
         <button class="chip gfin-view-btn" data-v="contratos">Contratos</button>
         <button class="chip gfin-view-btn" data-v="facturas">Facturas</button>
       </div>
+      <button class="btn" style="font-size:12px" onclick="exportGFin()">&#8595; Exportar Excel</button>
       <button class="btn" style="font-size:12px;background:var(--navy);color:#fff;border-color:var(--navy)" onclick="saveGFin()">&#128190; Guardar</button>
     </div>
   </div>
@@ -2671,7 +2672,7 @@ function handleFile(input){
           else if(!prog.finAnos||!prog.finAnos.length) prog.finAnos=[new Date().getFullYear(),new Date().getFullYear()+1];
         });
         saveCfg();
-        log('Anos detectados: '+JSON.stringify(anosByN0));
+        log('Anos detectados: '+Object.entries(anosByN0).map(function(e){return e[0]+': ['+Array.from(e[1]).join(',')+']';}).join('; '));
       }      ALL_ACT=[...pAct];ALL_GANTT=[...pGantt];ALL_PDS=pPDS;
       // Persist data to localStorage so it survives navigation
       try{
@@ -4955,8 +4956,8 @@ function renderContratos(p){
       const moedaOpts=MOEDAS.map(function(m){
         return '<option value="'+m+'"'+(ct.moeda===m?' selected':'')+'>'+m+'</option>';
       }).join('');
-      // Invoice total for this contract
-      const facTotal=(f.facturas||[]).filter(function(fac){return fac.contrato_id===ct.id;})
+      // Invoice total for this contract (exclude cancelled invoices)
+      const facTotal=(f.facturas||[]).filter(function(fac){return fac.contrato_id===ct.id&&fac.estado!=='Cancelada';})
         .reduce(function(s,fac){return s+parseNum(fac.valor);},0);
       const disponivel=parseNum(ct.valor_total)-facTotal;
 
@@ -5159,6 +5160,48 @@ function saveGFin(){
   if(document.getElementById('exec-fin')?.classList.contains('active')){
     initExecFin(); renderExecFin();
   }
+}
+
+function exportGFin(){
+  if(typeof XLSX==='undefined'){alert('XLSX não carregado.');return;}
+  const p=getCurrentFinPDS();
+  if(!p){showToast('Selecciona um plano de acção primeiro.','amber');return;}
+  const f=p.finances||{};
+  const wb=XLSX.utils.book_new();
+
+  // Sheet 1: Orçamento
+  const orcHeader=['ID0','ID2','Categoria','Tipo','Moeda'];
+  const anos=new Set();
+  (f.rubricas||[]).forEach(function(r){ Object.keys(r.valores||{}).forEach(function(a){anos.add(a);}); });
+  const anosList=Array.from(anos).sort();
+  orcHeader.push(...anosList,'Total','Nota','Fonte');
+  const orcRows=[orcHeader];
+  (f.rubricas||[]).forEach(function(r){
+    const rowTotal=anosList.reduce(function(s,a){return s+(r.valores&&r.valores[a]?parseNum(r.valores[a]):0);},0);
+    orcRows.push([p.id0||'',p.id2,r.categoria||'',r.capex?'CAPEX':'OPEX',r.moeda||'']
+      .concat(anosList.map(function(a){return r.valores&&r.valores[a]!=null?parseNum(r.valores[a]):0;}))
+      .concat([rowTotal,r.nota||'',r.fonte||'']));
+  });
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(orcRows),'Orçamento');
+
+  // Sheet 2: Contratos (with Câmbio Provisório)
+  const ctRows=[['ID0','ID2','Fornecedor','Tipologia','Moeda','Câmbio Provisório','Valor','Data Adjudicação','Descrição']];
+  (f.contratos||[]).forEach(function(ct){
+    ctRows.push([p.id0||'',p.id2,ct.fornecedor||'',ct.categoria||'',ct.moeda||'',ct.cambio_ref||'',ct.valor_total||0,ct.data_adj||'',ct.descricao||'']);
+  });
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(ctRows),'Contratos');
+
+  // Sheet 3: Facturas
+  const facRows=[['ID0','ID2','Fornecedor','Contrato','Moeda','Câmbio','Valor','Data Emissão','Data Vencimento','Estado']];
+  (f.facturas||[]).forEach(function(fac){
+    const ct=(f.contratos||[]).find(function(c){return c.id===fac.contrato_id;})||{};
+    facRows.push([p.id0||'',p.id2,fac.fornecedor||ct.fornecedor||'',ct.fornecedor||'',fac.moeda||'',fac.cambio||'',fac.valor||0,fac.data_emissao||'',fac.data_vencimento||'',fac.estado||'']);
+  });
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(facRows),'Facturas');
+
+  const safeName=(p.plano||'financeiro').replace(/[\\/:*?"<>|]/g,'_').substring(0,50);
+  XLSX.writeFile(wb,'GFin_'+safeName+'.xlsx');
+  showToast('Excel financeiro exportado.','green');
 }
 
 
