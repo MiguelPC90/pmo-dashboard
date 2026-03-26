@@ -2039,18 +2039,6 @@ const PDS_SEC=[
 ];
 function isNA(v){return !v||v.trim()==='N/A'||v.trim()==='';}
 
-function pdsNavigate(dir){
-  const sel=document.getElementById('pds-selector');
-  if(!sel) return;
-  const opts=[...sel.options].filter(function(o){return o.value!='';});
-  if(!opts.length) return;
-  const cur=opts.findIndex(function(o){return o.value===sel.value;});
-  const next=Math.max(0,Math.min(opts.length-1, (cur<0?0:cur)+dir));
-  sel.value=opts[next].value;
-  pdsCurrentKey=sel.value;
-  renderPDS();
-}
-
 function buildPdsSelector(){
   const sel=document.getElementById('pds-selector');
   if(!sel) return;
@@ -2919,7 +2907,7 @@ function saveSnapshot(){
 
 function buildSnapSelector(){
   const snaps = getSnapshots();
-  const opts = snaps.map((s,i)=>'<option value="'+i+'">'+s.label+'</option>').join('');
+  const opts = snaps.map((s,i)=>'<option value="'+i+'">'+esc(s.label)+'</option>').join('');
   const selB = document.getElementById('snap-selector');
   if(selB) selB.innerHTML='<option value="">— seleccionar —</option>'+opts;
   const selA = document.getElementById('snap-selector-a');
@@ -2933,7 +2921,7 @@ function renderSnapHistory(){
   if(!snaps.length){ el.innerHTML='<div style="color:var(--text3);font-size:12px">Sem snapshots guardados.</div>'; return; }
   el.innerHTML = snaps.map((s,i) => `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
-      <span style="font-size:12px">${s.label} &nbsp;<span style="color:var(--text3);font-size:11px">(${s.kpi.n} act.)</span></span>
+      <span style="font-size:12px">${esc(s.label)} &nbsp;<span style="color:var(--text3);font-size:11px">(${s.kpi.n} act.)</span></span>
       <button onclick="deleteSnapshot(${i})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px">&#10005;</button>
     </div>`).join('');
 }
@@ -3812,10 +3800,12 @@ function markGPDSDirty(){
   document.getElementById('gpds-unsaved').classList.add('show');
   // Sync on every change so PDS menu always shows latest
   syncPDSLegacyText();
-  // Rebuild fPDS
+  // Rebuild fPDS (same logic as applyFilters)
+  const n0s=MS_STATE['n0']||new Set();
   const n1s=MS_STATE['n1']||new Set();
-  const activeId2s=(MS_STATE['n2']&&MS_STATE['n2'].size>0)?new Set(fAct.map(function(d){return d.id2;})):null;
+  const activeId2s=(MS_STATE['n2']&&MS_STATE['n2'].size>0)?new Set(fAct.map(function(d){return d.id0+'_'+d.id2;})):null;
   fPDS=ALL_PDS.filter(function(p){
+    if(n0s.size&&!n0s.has(p.n0||''))return false;
     if(n1s.size&&!n1s.has(p.n1))return false;
     if(activeId2s&&!activeId2s.has((p.id0||'')+'_'+p.id2))return false;
     return true;
@@ -3853,11 +3843,13 @@ function gpdsInsertFmt(btn, key, idx, marker){
 
 function saveGPDS(){
   syncPDSLegacyText();
-  // Rebuild fPDS from updated ALL_PDS (respecting active filters)
+  // Rebuild fPDS from updated ALL_PDS (same logic as applyFilters)
+  const n0s=MS_STATE['n0']||new Set();
   const n1s=MS_STATE['n1']||new Set();
   const n2s=MS_STATE['n2']||new Set();
-  const activeId2s = n2s.size>0 ? new Set(fAct.map(d=>d.id2)) : null;
+  const activeId2s = n2s.size>0 ? new Set(fAct.map(d=>d.id0+'_'+d.id2)) : null;
   fPDS=ALL_PDS.filter(p=>{
+    if(n0s.size && !n0s.has(p.n0||'')) return false;
     if(n1s.size && !n1s.has(p.n1)) return false;
     if(activeId2s && !activeId2s.has((p.id0||'')+'_'+p.id2)) return false;
     return true;
@@ -5129,10 +5121,12 @@ function renderFacturas(p){
 function validateFacValor(p,fi){
   const fac=p.finances.facturas[fi]; if(!fac||!fac.contrato_id) return;
   const ct=p.finances.contratos.find(function(c){return c.id===fac.contrato_id;}); if(!ct) return;
-  const totalFac=p.finances.facturas.filter(function(f,i){return f.contrato_id===ct.id&&f.estado!=='Cancelada';})
-    .reduce(function(s,f){return s+parseNum(f.valor);},0);
-  if(totalFac>parseNum(ct.valor_total)){
-    showToast('Atenção: total das facturas ('+fmtEur(totalFac,ct.moeda)+') supera o valor do contrato ('+fmtEur(ct.valor_total,ct.moeda)+').','amber',4000);
+  // Convert all invoice values to base moeda for a consistent cross-currency comparison
+  const totalFacBase=p.finances.facturas.filter(function(f){return f.contrato_id===ct.id&&f.estado!=='Cancelada';})
+    .reduce(function(s,f){return s+toBase(parseNum(f.valor),f.moeda||ct.moeda,f.cambio||ct.cambio_ref);},0);
+  const ctBase=toBase(parseNum(ct.valor_total),ct.moeda,ct.cambio_ref);
+  if(totalFacBase>ctBase){
+    showToast('Atenção: total das facturas ('+fmtEur(totalFacBase)+') supera o valor do contrato ('+fmtEur(ctBase)+').','amber',4000);
   }
 }
 
