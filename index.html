@@ -107,8 +107,11 @@ tr.hover-row:hover td{background:var(--bg2)}
 .gantt-toolbar{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
 .gantt-wrap{overflow-x:auto;position:relative}
 .gantt-table .g-sticky{position:sticky;left:0;z-index:2;background:var(--bg);}
-.gantt-table .g-sticky-pct{position:sticky;left:204px;z-index:2;background:var(--bg);}
-.gantt-table .g-sticky-st{position:sticky;left:250px;z-index:2;background:var(--bg);}
+.gantt-table .g-sticky-2{position:sticky;left:196px;z-index:2;background:var(--bg);}
+.gantt-table .g-sticky-3{position:sticky;left:264px;z-index:2;background:var(--bg);}
+.gantt-table .g-sticky-4{position:sticky;left:352px;z-index:2;background:var(--bg);}
+.gantt-table .g-sticky-5{position:sticky;left:440px;z-index:2;background:var(--bg);}
+.gantt-table th.g-sticky,.gantt-table th.g-sticky-2,.gantt-table th.g-sticky-3,.gantt-table th.g-sticky-4,.gantt-table th.g-sticky-5{z-index:4}
 .gantt-table{border-collapse:collapse;font-size:12px;min-width:800px;width:100%}
 .gantt-table th{background:var(--navy);color:#fff;padding:6px 8px;font-size:10px;font-weight:500;white-space:nowrap;border-right:1px solid rgba(255,255,255,.12);position:sticky;top:0;z-index:3}
 .gantt-table td{padding:4px 8px;border-bottom:1px solid var(--border);vertical-align:middle;white-space:nowrap}
@@ -180,8 +183,9 @@ tr.hover-row:hover td{background:var(--bg2)}
 .upload-zone:hover{background:var(--bg2)}
 .btn-row{display:flex;gap:8px;justify-content:flex-end;margin-top:1rem}
 
-@media(max-width:900px){.resumo-grid,.charts-row{grid-template-columns:1fr}.pds-kpi-grid{grid-template-columns:repeat(3,1fr)}}
-@media(max-width:580px){.kpi-2col,.kpi-3col,.pds-kpi-grid{grid-template-columns:1fr 1fr}.pds-body{grid-template-columns:1fr}}
+@media(max-width:900px){.resumo-grid,.charts-row{grid-template-columns:1fr}.pds-kpi-grid{grid-template-columns:repeat(3,1fr)}.fin-kpi-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:580px){.kpi-2col,.kpi-3col,.pds-kpi-grid,.fin-kpi-grid{grid-template-columns:1fr 1fr}.pds-body{grid-template-columns:1fr}}
+@media(max-width:480px){.kpi-3col{grid-template-columns:1fr}.pm-field-row{grid-template-columns:1fr}}
 
 /* ── PROJECT MANAGEMENT ── */
 .pm-layout{display:grid;grid-template-columns:1fr 380px;gap:1rem;height:calc(100vh - 180px);min-height:500px}
@@ -471,6 +475,11 @@ tr.hover-row:hover td{background:var(--bg2)}
       <div class="ms-label">Sponsor</div>
       <button class="ms-btn" onclick="toggleMs('ms-sponsor')"><span id="ms-sponsor-lbl">Todos</span><span>&#9660;</span></button>
       <div class="ms-dropdown" id="ms-sponsor"></div>
+    </div>
+    <div class="ms-wrap" id="ms-status-wrap">
+      <div class="ms-label">Estado</div>
+      <button class="ms-btn" onclick="toggleMs('ms-status')"><span id="ms-status-lbl">Todos</span><span>&#9660;</span></button>
+      <div class="ms-dropdown" id="ms-status"></div>
     </div>
     <div class="ms-wrap gantt-date-filter" style="display:none">
       <div class="ms-label">Data início ≥</div>
@@ -933,7 +942,7 @@ tr.hover-row:hover td{background:var(--bg2)}
         <option value="999">Todos</option>
       </select>
     </div>
-      <div style="position:relative;height:220px"><canvas id="ef-chart-top5"></canvas></div>
+      <div style="position:relative;height:160px"><canvas id="ef-chart-top5"></canvas></div>
     </div>
   </div>
 </div>
@@ -1197,18 +1206,64 @@ function calcStatus(pct, finishDate, cutoff){
 }
 
 function calcPrevisto(bs, bf, rs, rf, cutoff){
-  // Use real dates (rs/rf) preferentially over base dates (bs/bf)
-  // More accurate: reflects actual schedule vs original plan
-  const startDate = rs || bs;
-  const finishDate = rf || bf;
-  if(!startDate || !finishDate) return null;
-  const sd=new Date(startDate); sd.setHours(0,0,0,0);
-  const fd=new Date(finishDate); fd.setHours(0,0,0,0);
+  // Always use base dates (bs/bf) for % Exec Prevista — revised dates are ignored
+  if(!bs || !bf) return null;
+  const sd=new Date(bs); sd.setHours(0,0,0,0);
+  const fd=new Date(bf); fd.setHours(0,0,0,0);
   const cd=cutoff || getCutoffDate();
   const total=fd-sd;
   if(total<=0) return null;
   const elapsed=cd-sd;
   return Math.min(100, Math.max(0, (elapsed/total)*100));
+}
+
+function recomputeHierarchy(rows, cutoff){
+  if(!rows||!rows.length) return;
+  const cd=cutoff||getCutoffDate();
+  // Build nearest-parent index (strict parent: nivel = child.nivel - 1)
+  const parentIdx=new Array(rows.length).fill(-1);
+  for(let i=1;i<rows.length;i++){
+    for(let j=i-1;j>=0;j--){
+      if(rows[j].nivel<rows[i].nivel){ parentIdx[i]=j; break; }
+    }
+  }
+  // Build children map
+  const childrenOf={};
+  for(let i=0;i<rows.length;i++){
+    const p=parentIdx[i];
+    if(p>=0){ if(!childrenOf[p])childrenOf[p]=[]; childrenOf[p].push(i); }
+  }
+  // Process bottom-up: leaves first
+  for(let i=rows.length-1;i>=0;i--){
+    const row=rows[i];
+    const ch=(childrenOf[i]||[]).map(ci=>rows[ci]);
+    if(ch.length){
+      row.pct=Math.round(ch.reduce((s,c)=>s+(c.pct||0),0)/ch.length*10)/10;
+      const bsA=ch.map(c=>c.bs).filter(Boolean).sort();
+      const bfA=ch.map(c=>c.bf).filter(Boolean).sort();
+      const rsA=ch.map(c=>c.rs).filter(Boolean).sort();
+      const rfA=ch.map(c=>c.rf).filter(Boolean).sort();
+      if(bsA.length) row.bs=bsA[0];
+      if(bfA.length) row.bf=bfA[bfA.length-1];
+      if(rsA.length) row.rs=rsA[0];
+      if(rfA.length) row.rf=rfA[rfA.length-1];
+    }
+    const prev=calcPrevisto(row.bs,row.bf,null,null,cd);
+    row.pct_prev=prev!==null?Math.round(prev*10)/10:0;
+    row.status=calcStatus(row.pct,row.bf,cd);
+  }
+}
+
+function syncActFromGantt(){
+  // Sync nivel=4 computed values from ALL_GANTT back to ALL_ACT (same order)
+  let ai=0;
+  ALL_GANTT.forEach(function(r){
+    if(r.nivel===4&&ai<ALL_ACT.length){
+      ALL_ACT[ai].pct=r.pct; ALL_ACT[ai].pct_prev=r.pct_prev;
+      ALL_ACT[ai].status=r.status; ALL_ACT[ai].bs=r.bs; ALL_ACT[ai].bf=r.bf;
+      ai++;
+    }
+  });
 }
 
 function applyCutoff(){
@@ -1224,26 +1279,8 @@ function applyCutoff(){
     if(CFG) CFG.cutoffDate='';
   }
   const cutoff = v ? (()=>{const d=new Date(v);d.setHours(0,0,0,0);return d;})() : null;
-  ALL_ACT.forEach(a=>{
-    a.status = calcStatus(a.pct, a.rf||a.bf||a.finish, cutoff);
-    if(cutoff){
-      const prev = calcPrevisto(a.bs, a.bf, a.rs, a.rf, cutoff);
-      a.pct_prev_cutoff = prev!==null ? Math.round(prev*10)/10 : a.pct_prev;
-    } else {
-      a.pct_prev_cutoff = null;
-    }
-  });
-  ALL_GANTT.forEach(r=>{
-    if(r.nivel===4){
-      r.status = calcStatus(r.pct, r.rf||r.bf, cutoff);
-      if(cutoff){
-        const prev = calcPrevisto(r.bs, r.bf, r.rs, r.rf, cutoff);
-        r.pct_prev_cutoff = prev!==null ? Math.round(prev*10)/10 : r.pct_prev;
-      } else {
-        r.pct_prev_cutoff = null;
-      }
-    }
-  });
+  recomputeHierarchy(ALL_GANTT, cutoff);
+  syncActFromGantt();
   applyFilters();
   renderKPIs(kpi(fAct));
   renderEixoTable(fAct);
@@ -1391,6 +1428,7 @@ function buildAllFilters(src){
   buildMs('n2', sortByHierarchy([...new Set(src.map(function(d){return d.n2;}))], src, 'n2', 'id2'));
   buildMs('owner',[...new Set(src.map(d=>d.owner).filter(Boolean))].sort());
   buildMs('sponsor',[...new Set(src.map(d=>d.sponsor).filter(Boolean))].sort());
+  buildMs('status',['Concluído','Em dia','Em atraso']);
 }
 
 function applyFilters(){
@@ -1399,20 +1437,24 @@ function applyFilters(){
   const n2s=MS_STATE['n2']||new Set();
   const owns=MS_STATE['owner']||new Set();
   const spns=MS_STATE['sponsor']||new Set();
+  const stts=MS_STATE['status']||new Set();
   const ds=document.getElementById('f-date-start').value;
   const de=document.getElementById('f-date-end').value;
 
   fAct=ALL_ACT.filter(d=>
     (!n0s.size||n0s.has(d.n0||''))&&(!n1s.size||n1s.has(d.n1))&&
     (!n2s.size||n2s.has(d.n2))&&(!owns.size||owns.has(d.owner))&&
-    (!spns.size||spns.has(d.sponsor)));
+    (!spns.size||spns.has(d.sponsor))&&(!stts.size||stts.has(d.status)));
 
+  // For Gantt: status filter applies to N4 rows only; parent rows are included if any child matches
+  const activeN4keys=stts.size>0?new Set(fAct.map(a=>(a.id0||'')+'_'+a.id2+'_'+a.id1+'_'+(a.n3||'')+'_'+a.nome)):null;
   fGantt=ALL_GANTT.filter(r=>{
     if(n0s.size&&!n0s.has(r.n0||''))return false;
     if(n1s.size&&!n1s.has(r.n1))return false;
     if(n2s.size&&r.n2&&!n2s.has(r.n2)&&r.nivel>1)return false;
     if(owns.size&&r.owner&&!owns.has(r.owner))return false;
     if(spns.size&&r.sponsor&&!spns.has(r.sponsor))return false;
+    if(activeN4keys&&r.nivel===4&&!activeN4keys.has((r.id0||'')+'_'+r.id2+'_'+r.id1+'_'+(r.n3||'')+'_'+r.nome))return false;
     if(ds||de){const s=r.rs||r.bs,e=r.rf||r.bf;if(ds&&e&&e<ds)return false;if(de&&s&&s>de)return false;}
     return true;
   });
@@ -1430,7 +1472,7 @@ function applyFilters(){
 }
 
 function resetFilters(){
-  ['n0','n1','n2','owner','sponsor'].forEach(id=>{MS_STATE[id]=new Set();});
+  ['n0','n1','n2','owner','sponsor','status'].forEach(id=>{MS_STATE[id]=new Set();});
   // Store N0/N1 for Admin page
   try{
     const _n0s=[...new Set(ALL_ACT.map(function(d){return d.n0||'';}))].filter(Boolean).sort();
@@ -1443,9 +1485,8 @@ function resetFilters(){
   document.getElementById('cutoff-badge').style.display='none';
   if(CFG) CFG.cutoffDate='';
   // Reset status to today
-  const today=new Date();today.setHours(0,0,0,0);
-  ALL_ACT.forEach(a=>{ a.status=calcStatus(a.pct,a.rf||a.bf||a.finish,today); a.pct_prev_cutoff=null; });
-  ALL_GANTT.forEach(r=>{ if(r.nivel===4){ r.status=calcStatus(r.pct,r.rf||r.bf,today); r.pct_prev_cutoff=null; }});
+  recomputeHierarchy(ALL_GANTT);
+  syncActFromGantt();
   buildAllFilters(ALL_ACT);
   applyFilters();
 }
@@ -1492,27 +1533,22 @@ function getSnapPrev(snap){
 }
 
 function renderKPIs(k){
-  const snap = getLatestSnapshot();
-  const prev = getSnapPrev(snap);
-
-  function set(id, val, prevVal, isLower){
+  function set(id, val){
     const el = document.getElementById(id);
     if(!el) return;
-    el.innerHTML = val + trendBadge(typeof val==='string'?parseFloat(val):val, prevVal, isLower||false);
+    el.textContent = val;
   }
-
-  set('k-tot', k.n,   prev?prev.n:null);
-  set('k-con', k.con, prev?prev.con:null);
-  set('k-dia', k.dia, prev?prev.dia:null);
-  set('k-atr', k.atr, prev?prev.atr:null, true);
-  set('k-exe', k.exe.toFixed(1)+'%', prev?prev.exe:null);
-  set('k-cg',  pp(k.cg),  prev?pp(prev.cg):null);
-  set('k-cd',  pp(k.cd),  prev?pp(prev.cd):null);
-  document.getElementById('k-exe-obj').textContent = k.exeObj.toFixed(1)+'%';
-  document.getElementById('k-cg-obj').textContent  = pp(k.cgObj);
-
+  set('k-tot', k.n);
+  set('k-con', k.con);
+  set('k-dia', k.dia);
+  set('k-atr', k.atr);
+  set('k-exe', k.exe.toFixed(1)+'%');
+  set('k-cg',  pp(k.cg));
+  set('k-cd',  pp(k.cd));
+  set('k-exe-obj', k.exeObj.toFixed(1)+'%');
+  set('k-cg-obj',  pp(k.cgObj));
   const refEl = document.getElementById('trend-ref');
-  if(refEl) refEl.textContent = snap ? 'vs '+snap.label : '';
+  if(refEl) refEl.textContent = '';
 }
 
 // ── CHARTS ────────────────────────────────────────────────────────────────────
@@ -1946,11 +1982,11 @@ function renderGantt(data){
   const redBar=getComputedStyle(document.documentElement).getPropertyValue('--red-bar').trim()||'#E24B4A';
 
   let html=`<thead><tr>
-    <th rowspan="2" style="min-width:180px">Designação</th>
-    <th rowspan="2" style="text-align:center;width:52px">% Exec.</th>
-    <th rowspan="2" style="text-align:center;width:72px">Início</th>
-    <th rowspan="2" style="text-align:center;width:72px">Fim</th>
-    <th rowspan="2" style="text-align:center;width:76px">Estado</th>
+    <th rowspan="2" class="g-sticky" style="min-width:180px">Designação</th>
+    <th rowspan="2" class="g-sticky-2" style="text-align:center;width:52px">% Exec.</th>
+    <th rowspan="2" class="g-sticky-3" style="text-align:center;width:72px">Início</th>
+    <th rowspan="2" class="g-sticky-4" style="text-align:center;width:72px">Fim</th>
+    <th rowspan="2" class="g-sticky-5" style="text-align:center;width:76px">Estado</th>
     <th colspan="${validMths.length}" style="text-align:center">Timeline</th></tr><tr>`;
   validMths.forEach((mo,i)=>{html+=`<th class="gantt-month-hdr" style="width:${validMw[i].toFixed(1)}%">${String(mo.m+1).padStart(2,"0")}/${String(mo.y).slice(2)}</th>`;});
   html+=`</tr></thead><tbody>`;
@@ -2011,11 +2047,11 @@ function renderGantt(data){
     bars+=`<div class="g-today" style="left:${todayPct}%"></div>`;
 
     html+=`<tr class="${cls}">
-      <td><div class="g-name" style="padding-left:${indent}px">${toggle}${esc(row.nome)}</div></td>
-      <td style="text-align:center;font-size:11px">${row.pct}%</td>
-      <td style="text-align:center;font-size:11px;color:var(--text2)">${dd(startD)}</td>
-      <td style="text-align:center;font-size:11px;color:var(--text2)">${dd(endD)}</td>
-      <td style="text-align:center">${statCell}</td>
+      <td class="g-sticky"><div class="g-name" style="padding-left:${indent}px">${toggle}${esc(row.nome)}</div></td>
+      <td class="g-sticky-2" style="text-align:center;font-size:11px">${row.pct}%</td>
+      <td class="g-sticky-3" style="text-align:center;font-size:11px;color:var(--text2)">${dd(startD)}</td>
+      <td class="g-sticky-4" style="text-align:center;font-size:11px;color:var(--text2)">${dd(endD)}</td>
+      <td class="g-sticky-5" style="text-align:center">${statCell}</td>
       <td class="g-chart-cell" colspan="${validMths.length}"><div class="g-bar-wrap">${bars}</div></td>
     </tr>`;
   });
@@ -2306,7 +2342,7 @@ function renderAll(){
   }
   // Always update PDS selector (used by multiple tabs)
   if(tab!=='pds'){ buildPdsSelector(); }
-  if(tab==='gestao-iniciativas'){ renderPMTable(); }
+  if(tab==='gestao'){ renderPMTable(); }
 }
 
 // ── UPLOAD ────────────────────────────────────────────────────────────────────
@@ -2662,6 +2698,8 @@ function handleFile(input){
         saveCfg();
         log('Anos detectados: '+Object.entries(anosByN0).map(function(e){return e[0]+': ['+Array.from(e[1]).join(',')+']';}).join('; '));
       }      ALL_ACT=[...pAct];ALL_GANTT=[...pGantt];ALL_PDS=pPDS;
+      recomputeHierarchy(ALL_GANTT);
+      syncActFromGantt();
       // Persist data to localStorage so it survives navigation
       try{
         localStorage.setItem('pmo_act', JSON.stringify(ALL_ACT));
@@ -2798,6 +2836,8 @@ async function loadData(){
         var _n1map={}, _n0map={};
         ALL_ACT.forEach(function(d){ var k=(d.id0||'')+'_'+d.id2; _n1map[k]=d.n1; _n0map[k]=d.n0||''; });
         ALL_PDS.forEach(function(p){ var k=(p.id0||'')+'_'+p.id2; if(_n1map[k]){p.n1=_n1map[k]; p.n0=_n0map[k];} });
+        recomputeHierarchy(ALL_GANTT);
+        syncActFromGantt();
         applyCutoff();
         buildAllFilters(ALL_ACT);
         ['n0','n1','n2','owner','sponsor'].forEach(function(id){MS_STATE[id]=new Set();});
@@ -3726,9 +3766,10 @@ function renderGPDSSection(key, items, hasDates){
       +'<div class="gpds-item-left">'
       +'<textarea class="gpds-item-text" rows="3" data-key="'+key+'" data-i="'+i+'" data-field="text">'+esc(item.text||'')+'</textarea>'
       +(hasDates
-        ?           +'<input type="date" class="gpds-date" value="'+(item.date||'')+'" data-key="'+key+'" data-i="'+i+'" data-field="date">'
-          +'<select class="gpds-status" data-key="'+key+'" data-i="'+i+'" data-field="status">'+stOpts+'</select>'
-          +'</div>'
+        ? (function(){var dv=item.date&&/^\d{4}-\d{2}-\d{2}$/.test(item.date)?item.date:'';
+            return'<input type="date" class="gpds-date" value="'+dv+'" data-key="'+key+'" data-i="'+i+'" data-field="date">'
+              +'<select class="gpds-status" data-key="'+key+'" data-i="'+i+'" data-field="status">'+stOpts+'</select>'
+              +'</div>';})()
         :'')
       +'</div>'
       +'<button class="gpds-del" data-key="'+key+'" data-i="'+i+'">&#10005;</button>'
