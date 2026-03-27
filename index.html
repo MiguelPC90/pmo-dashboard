@@ -1252,7 +1252,15 @@ function recomputeHierarchy(rows, cutoff){
     }
     const prev=calcPrevisto(row.bs,row.bf,null,null,cd);
     row.pct_prev=prev!==null?Math.round(prev*10)/10:0;
-    row.status=calcStatus(row.pct,row.rf||row.bf,cd);
+    if(ch.length){
+      // Parent row: Em atraso only if actual % < planned %
+      if(row.pct>=100) row.status='Concluído';
+      else if(row.pct_prev>0&&row.pct<row.pct_prev) row.status='Em atraso';
+      else row.status='Em dia';
+    } else {
+      // Leaf (N4): date-based — past deadline and not done = Em atraso
+      row.status=calcStatus(row.pct,row.rf||row.bf,cd);
+    }
   }
 }
 
