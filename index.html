@@ -239,6 +239,9 @@ tr.hover-row:hover td{background:var(--bg2)}
 .gpds-date{padding:4px 7px;font-size:12px;border:1px solid var(--border2);border-radius:var(--r);background:var(--bg);color:var(--text);font-family:inherit}
 .gpds-status{padding:4px 8px;font-size:11px;border:1px solid var(--border2);border-radius:var(--r);background:var(--bg);color:var(--text);font-family:inherit;cursor:pointer}
 .gpds-del{background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:4px;flex-shrink:0}
+.gpds-fmt-bar{display:flex;gap:3px;margin-bottom:2px}
+.gpds-fmt-btn{background:var(--bg2);border:1px solid var(--border2);border-radius:3px;padding:1px 8px;font-size:12px;cursor:pointer;color:var(--text);line-height:1.6}
+.gpds-fmt-btn:hover{background:var(--border)}
 .gpds-del:hover{color:var(--red)}
 .gpds-no-date{font-size:11px;color:var(--text3);font-style:italic}
 
@@ -3779,6 +3782,10 @@ function renderGPDSSection(key, items, hasDates){
     }).join('');
     html+='<div class="gpds-item">'
       +'<div class="gpds-item-left">'
+      +'<div class="gpds-fmt-bar">'
+      +'<button class="gpds-fmt-btn" onclick="gpdsInsertFmt(this,\''+key+'\','+i+',\'**\')"><b>B</b></button>'
+      +'<button class="gpds-fmt-btn" onclick="gpdsInsertFmt(this,\''+key+'\','+i+',\'*\')"><i>I</i></button>'
+      +'</div>'
       +'<textarea class="gpds-item-text" rows="3" data-key="'+key+'" data-i="'+i+'" data-field="text">'+esc(item.text||'')+'</textarea>'
       +(hasDates
         ? (function(){var dv=item.date&&/^\d{4}-\d{2}-\d{2}$/.test(item.date)?item.date:'';
@@ -5032,6 +5039,16 @@ function renderContratos(p){
         +'<input class="fin-input" style="text-align:left" data-ci="'+ci+'" data-field="descricao" value="'+esc(ct.descricao||'')+'"></div>'
         +'<div><div class="fin-section-title" style="margin:0 0 3px">Data adjudicação</div>'
         +'<input type="date" class="fin-input" style="text-align:left" data-ci="'+ci+'" data-field="data_adj" value="'+(ct.data_adj||'')+'"></div>'
+        +(function(){
+            const adOpts=['Não','Sim'].map(function(v){return'<option value="'+v+'"'+(ct.adenda===v?' selected':'')+'>'+v+'</option>';}).join('');
+            const adDeOpts='<option value="">—</option>'+f.contratos.filter(function(c){return c.id!==ct.id;}).map(function(c){return'<option value="'+c.id+'"'+(ct.adenda_de===c.id?' selected':'')+'>'+esc(c.fornecedor||c.id.slice(-6))+'</option>';}).join('');
+            return '<div><div class="fin-section-title" style="margin:0 0 3px">Adenda</div>'
+              +'<select class="fin-input" style="text-align:left;width:80px" data-ci="'+ci+'" data-field="adenda">'+adOpts+'</select></div>'
+              +(ct.adenda==='Sim'
+                ?'<div><div class="fin-section-title" style="margin:0 0 3px">Adenda a</div>'
+                  +'<select class="fin-input" style="text-align:left" data-ci="'+ci+'" data-field="adenda_de">'+adDeOpts+'</select></div>'
+                :'');
+          })()
         +(ct.moeda!==getBaseMoeda()
           ? '<div style="grid-column:1/-1"><div class="fin-section-title" style="margin:0 0 3px">Câmbio provisório <span style="color:var(--text3);font-weight:400">('+ct.moeda+' → '+getBaseMoeda()+')</span></div>'
             +'<input class="fin-input" style="max-width:200px" data-ci="'+ci+'" data-field="cambio_ref" placeholder="Ex: 920.50" value="'+(ct.cambio_ref||'')+'"></div>'
@@ -5068,6 +5085,8 @@ function renderContratos(p){
     else if(field==='moeda') ct.moeda=e.target.value;
     else if(field==='data_adj') ct.data_adj=e.target.value;
     else if(field==='cambio_ref') ct.cambio_ref=parseNum(e.target.value);
+    else if(field==='adenda'){ ct.adenda=e.target.value; if(ct.adenda==='Não') ct.adenda_de=''; renderContratos(p); }
+    else if(field==='adenda_de') ct.adenda_de=e.target.value;
     if(field==='moeda'||field==='cambio_ref') renderContratos(p);
     renderGFinKPIs(p); markGFinDirty();
   });
@@ -5077,7 +5096,7 @@ function addContrato(){
   const p=getCurrentFinPDS(); if(!p) return;
   const cats=getFinCats(p.n0||'');
   p.finances.contratos.push({id:uid(),fornecedor:'',descricao:'',categoria:cats.length?cats[0].nome:'',
-    moeda:getBaseMoeda(),valor_total:0,data_adj:''});
+    moeda:getBaseMoeda(),valor_total:0,data_adj:'',adenda:'Não',adenda_de:''});
   renderContratos(p); markGFinDirty();
 }
 function removeContrato(ci){
@@ -5103,9 +5122,9 @@ function renderFacturas(p){
     html+='<div style="text-align:center;padding:2rem;color:var(--text3);font-size:13px">Sem facturas.</div>';
   } else {
     html+='<div class="card" style="padding:0;overflow-x:auto"><table class="fin-table"><thead><tr>'
-      +'<th style="text-align:left">Ref.</th>'
       +'<th style="text-align:left">Fornecedor</th>'
       +'<th style="text-align:left">Contrato</th>'
+      +'<th style="text-align:left"># Contrato</th>'
       +'<th>Moeda</th><th>Valor</th>'
       +'<th>Câmbio</th>'
       +'<th>Data</th>'
@@ -5129,9 +5148,9 @@ function renderFacturas(p){
       const stColor=FAC_CORES[fac.estado]||'var(--text2)';
 
       html+='<tr>'
-        +'<td><input class="fin-input" style="text-align:left;min-width:80px" data-fi="'+fi+'" data-field="ref" value="'+esc(fac.ref||'')+'"></td>'
-        +'<td><input class="fin-input" style="text-align:left;min-width:100px" data-fi="'+fi+'" data-field="fornecedor" value="'+esc(fac.fornecedor||'')+'"></td>'
-        +'<td><select class="fin-input" style="text-align:left;min-width:120px" data-fi="'+fi+'" data-field="contrato_id">'+ctOpts+'</select></td>'
+        +'<td><input class="fin-input" style="text-align:left;min-width:120px" data-fi="'+fi+'" data-field="fornecedor" value="'+esc(fac.fornecedor||'')+'"></td>'
+        +'<td><select class="fin-input" style="text-align:left;min-width:140px" data-fi="'+fi+'" data-field="contrato_id">'+ctOpts+'</select></td>'
+        +'<td><input class="fin-input" style="text-align:left;min-width:90px;background:var(--bg2)" data-fi="'+fi+'" data-field="ref" value="'+esc(fac.ref||'')+'" placeholder="auto"></td>'
         +'<td><select class="fin-input" style="text-align:left;width:60px" data-fi="'+fi+'" data-field="moeda">'+moedaOpts+'</select></td>'
         +'<td><input class="fin-input" style="min-width:90px" data-fi="'+fi+'" data-field="valor" value="'+(fac.valor||0)+'"></td>'
         +'<td>'+(needsCambio?'<input class="fin-input" style="min-width:80px" data-fi="'+fi+'" data-field="cambio" placeholder="Taxa" value="'+(fac.cambio||'')+'">':'<span style="color:var(--text3);font-size:11px">—</span>')+'</td>'
@@ -5160,7 +5179,15 @@ function renderFacturas(p){
     const fi=e.target.dataset.fi; if(fi==null) return;
     const fac=f.facturas[parseInt(fi)]; if(!fac) return;
     const field=e.target.dataset.field;
-    if(field==='contrato_id') fac.contrato_id=e.target.value;
+    if(field==='contrato_id'){
+      fac.contrato_id=e.target.value;
+      const selCt=f.contratos.find(function(c){return c.id===fac.contrato_id;});
+      if(selCt){
+        if(!fac.fornecedor) fac.fornecedor=selCt.fornecedor||'';
+        fac.ref=selCt.descricao||selCt.id.slice(-6);
+      }
+      renderFacturas(p);
+    }
     else if(field==='moeda'){ fac.moeda=e.target.value; renderFacturas(p); }
     else if(field==='estado'){ fac.estado=e.target.value; renderFacturas(p); }
     else if(field==='data_emissao') fac.data_emissao=e.target.value;
