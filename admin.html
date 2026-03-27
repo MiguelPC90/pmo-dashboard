@@ -103,6 +103,17 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg2);color:var
 /* Dark mode */
 body.dark{--bg:#1a1a1e;--bg2:#242428;--bg3:#2e2e32;--text:#e8e8e4;--text2:#a0a09a;--text3:#606058;--border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.15)}
 
+/* Mobile */
+@media(max-width:768px){
+  .admin-layout{grid-template-columns:1fr}
+  .admin-sidebar{padding:8px 0;border-right:none;border-bottom:1px solid rgba(255,255,255,.12);display:flex;flex-wrap:wrap;gap:4px;padding:8px 12px}
+  .admin-nav-section{display:none}
+  .admin-nav-item{padding:6px 12px;border-left:none;border-radius:4px;font-size:12px}
+  .admin-nav-item.active{background:rgba(255,255,255,.15);border-left:none}
+  .admin-content{padding:16px}
+  .agrid-2,.agrid-3{grid-template-columns:1fr}
+}
+
 .fin-section-title{font-size:11px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.05em;margin:8px 0 4px}
 </style>
 </head>
