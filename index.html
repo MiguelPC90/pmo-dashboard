@@ -106,11 +106,7 @@ tr.hover-row:hover td{background:var(--bg2)}
 /* ── GANTT ── */
 .gantt-toolbar{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
 .gantt-wrap{overflow-x:auto;position:relative}
-.gantt-table .g-sticky{position:sticky;left:0;z-index:2;background:var(--bg);}
-.gantt-table .g-sticky-2{position:sticky;left:196px;z-index:2;background:var(--bg);}
-.gantt-table .g-sticky-3{position:sticky;left:264px;z-index:2;background:var(--bg);}
-.gantt-table .g-sticky-4{position:sticky;left:352px;z-index:2;background:var(--bg);}
-.gantt-table .g-sticky-5{position:sticky;left:440px;z-index:2;background:var(--bg);}
+.gantt-table .g-sticky,.gantt-table .g-sticky-2,.gantt-table .g-sticky-3,.gantt-table .g-sticky-4,.gantt-table .g-sticky-5{position:sticky;z-index:2;background:var(--bg);}
 /* Header sticky-left cells: keep navy bg and float above td sticky cells */
 .gantt-table th.g-sticky,.gantt-table th.g-sticky-2,.gantt-table th.g-sticky-3,.gantt-table th.g-sticky-4,.gantt-table th.g-sticky-5{z-index:4;background:var(--navy)}
 .gantt-table{border-collapse:collapse;font-size:12px;min-width:800px;width:100%}
@@ -118,7 +114,9 @@ tr.hover-row:hover td{background:var(--bg2)}
 .gantt-table td{padding:4px 8px;border-bottom:1px solid var(--border);vertical-align:middle;white-space:nowrap}
 .gantt-table tr:hover td{background:rgba(0,46,94,.04)}
 .gantt-row-n1 td{background:rgba(0,46,94,.07);font-weight:700;color:var(--navy)}
+.gantt-row-n1 td.g-sticky,.gantt-row-n1 td.g-sticky-2,.gantt-row-n1 td.g-sticky-3,.gantt-row-n1 td.g-sticky-4,.gantt-row-n1 td.g-sticky-5{background:#e8edf3}
 .gantt-row-n2 td{background:rgba(0,46,94,.03);font-weight:600}
+.gantt-row-n2 td.g-sticky,.gantt-row-n2 td.g-sticky-2,.gantt-row-n2 td.g-sticky-3,.gantt-row-n2 td.g-sticky-4,.gantt-row-n2 td.g-sticky-5{background:#f4f5f7}
 .gantt-row-n3 td{font-weight:500}
 .gantt-row-n4 td{color:var(--text2)}
 .g-toggle{background:none;border:none;cursor:pointer;font-size:10px;padding:0 3px;color:var(--navy);font-weight:700;line-height:1}
@@ -2058,6 +2056,18 @@ function renderGantt(data){
   });
   html+=`</tbody>`;
   tbl.innerHTML=html;
+  // Fix sticky left offsets using actual rendered offsetLeft (avoids gap/overlap bugs)
+  (function(){
+    const hrow=tbl.querySelector('thead tr');
+    if(!hrow) return;
+    for(let ci=0;ci<5&&ci<hrow.children.length;ci++){
+      const left=hrow.children[ci].offsetLeft+'px';
+      hrow.children[ci].style.left=left;
+      tbl.querySelectorAll('tbody tr').forEach(function(tr){
+        if(tr.children[ci]) tr.children[ci].style.left=left;
+      });
+    }
+  })();
 }
 
 function gToggle(idx){GCOL[idx]=!GCOL[idx];renderGantt(fGantt);}
