@@ -1120,7 +1120,7 @@ function initDados(){
 }
 
 function initRotulos(){
-  const raw=localStorage.getItem('pmo_gantt_data');
+  const raw=localStorage.getItem('pmo_gantt_data')||localStorage.getItem('pmo_act');
   const data=raw?JSON.parse(raw):[];
   const n0s=[...new Set(data.map(function(r){return r.n0;}).filter(Boolean))].sort();
   const wrap=document.getElementById('rotulos-wrap');

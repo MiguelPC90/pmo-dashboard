@@ -1441,7 +1441,12 @@ function getFilterLabel(dim,n0){
 }
 function updateFilterLabels(){
   const n0s=MS_STATE['n0']||new Set();
-  const n0=n0s.size===1?[...n0s][0]:null;
+  let n0=n0s.size===1?[...n0s][0]:null;
+  // If no explicit selection but only one programme in the dataset, use it automatically
+  if(!n0&&typeof ALL_ACT!=='undefined'){
+    const allN0s=[...new Set(ALL_ACT.map(function(d){return d.n0||'';}).filter(Boolean))];
+    if(allN0s.length===1) n0=allN0s[0];
+  }
   ['n1','n2','owner','sponsor'].forEach(function(d){
     const wrap=document.getElementById('ms-'+d+'-wrap');
     if(wrap) wrap.querySelector('.ms-label').textContent=getFilterLabel(d,n0);
