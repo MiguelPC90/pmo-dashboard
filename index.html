@@ -5122,6 +5122,7 @@ function renderFacturas(p){
     html+='<div style="text-align:center;padding:2rem;color:var(--text3);font-size:13px">Sem facturas.</div>';
   } else {
     html+='<div class="card" style="padding:0;overflow-x:auto"><table class="fin-table"><thead><tr>'
+      +'<th style="text-align:left">Ref</th>'
       +'<th style="text-align:left">Fornecedor</th>'
       +'<th style="text-align:left">Contrato</th>'
       +'<th style="text-align:left"># Contrato</th>'
@@ -5134,9 +5135,13 @@ function renderFacturas(p){
       +'</tr></thead><tbody>';
 
     f.facturas.forEach(function(fac,fi){
-      const ct=f.contratos.find(function(c){return c.id===fac.contrato_id;});
-      const ctOpts='<option value="">—</option>'+f.contratos.map(function(c){
-        return '<option value="'+c.id+'"'+(fac.contrato_id===c.id?' selected':'')+'>'+esc(c.fornecedor||c.id.slice(-6))+'</option>';
+      const uniqueSuppliers=[...new Set(f.contratos.map(function(c){return c.fornecedor;}).filter(Boolean))];
+      const fornOpts='<option value="">—</option>'+uniqueSuppliers.map(function(s){
+        return '<option value="'+esc(s)+'"'+(fac.fornecedor===s?' selected':'')+'>'+esc(s)+'</option>';
+      }).join('');
+      const filteredCts=fac.fornecedor?f.contratos.filter(function(c){return c.fornecedor===fac.fornecedor;}):f.contratos;
+      const ctOpts='<option value="">—</option>'+filteredCts.map(function(c){
+        return '<option value="'+c.id+'"'+(fac.contrato_id===c.id?' selected':'')+'>'+esc(c.descricao||c.id.slice(-6))+'</option>';
       }).join('');
       const moedaOpts=MOEDAS.map(function(m){
         return '<option value="'+m+'"'+(fac.moeda===m?' selected':'')+'>'+m+'</option>';
@@ -5148,9 +5153,10 @@ function renderFacturas(p){
       const stColor=FAC_CORES[fac.estado]||'var(--text2)';
 
       html+='<tr>'
-        +'<td><input class="fin-input" style="text-align:left;min-width:120px" data-fi="'+fi+'" data-field="fornecedor" value="'+esc(fac.fornecedor||'')+'"></td>'
+        +'<td><input class="fin-input" style="text-align:left;min-width:90px" data-fi="'+fi+'" data-field="ref" value="'+esc(fac.ref||'')+'"></td>'
+        +'<td><select class="fin-input" style="text-align:left;min-width:120px" data-fi="'+fi+'" data-field="fornecedor">'+fornOpts+'</select></td>'
         +'<td><select class="fin-input" style="text-align:left;min-width:140px" data-fi="'+fi+'" data-field="contrato_id">'+ctOpts+'</select></td>'
-        +'<td><input class="fin-input" style="text-align:left;min-width:90px;background:var(--bg2)" data-fi="'+fi+'" data-field="ref" value="'+esc(fac.ref||'')+'" placeholder="auto"></td>'
+        +'<td><input class="fin-input" style="text-align:left;min-width:90px;background:var(--bg2);font-size:10px;color:var(--text3)" readonly data-fi="'+fi+'" data-field="_cid_display" value="'+esc(fac.contrato_id||'')+'" placeholder="—"></td>'
         +'<td><select class="fin-input" style="text-align:left;width:60px" data-fi="'+fi+'" data-field="moeda">'+moedaOpts+'</select></td>'
         +'<td><input class="fin-input" style="min-width:90px" data-fi="'+fi+'" data-field="valor" value="'+(fac.valor||0)+'"></td>'
         +'<td>'+(needsCambio?'<input class="fin-input" style="min-width:80px" data-fi="'+fi+'" data-field="cambio" placeholder="Taxa" value="'+(fac.cambio||'')+'">':'<span style="color:var(--text3);font-size:11px">—</span>')+'</td>'
@@ -5170,7 +5176,6 @@ function renderFacturas(p){
     const fac=f.facturas[parseInt(fi)]; if(!fac) return;
     const field=e.target.dataset.field;
     if(field==='ref') fac.ref=e.target.value;
-    else if(field==='fornecedor') fac.fornecedor=e.target.value;
     else if(field==='valor'){ fac.valor=parseNum(e.target.value); validateFacValor(p,parseInt(fi)); }
     else if(field==='cambio') fac.cambio=parseNum(e.target.value);
     renderGFinKPIs(p); markGFinDirty();
@@ -5179,13 +5184,13 @@ function renderFacturas(p){
     const fi=e.target.dataset.fi; if(fi==null) return;
     const fac=f.facturas[parseInt(fi)]; if(!fac) return;
     const field=e.target.dataset.field;
-    if(field==='contrato_id'){
+    if(field==='fornecedor'){
+      fac.fornecedor=e.target.value;
+      fac.contrato_id='';
+      renderFacturas(p);
+    }
+    else if(field==='contrato_id'){
       fac.contrato_id=e.target.value;
-      const selCt=f.contratos.find(function(c){return c.id===fac.contrato_id;});
-      if(selCt){
-        if(!fac.fornecedor) fac.fornecedor=selCt.fornecedor||'';
-        fac.ref=selCt.descricao||selCt.id.slice(-6);
-      }
       renderFacturas(p);
     }
     else if(field==='moeda'){ fac.moeda=e.target.value; renderFacturas(p); }
