@@ -175,6 +175,9 @@ body.dark{--bg:#1a1a1e;--bg2:#242428;--bg3:#2e2e32;--text:#e8e8e4;--text2:#a0a09
     <div class="admin-nav-item" data-panel="outros" onclick="showPanel('outros',this)">
       <span class="nav-icon">⚙️</span> Outros
     </div>
+    <div class="admin-nav-item" data-panel="dados" onclick="showPanel('dados',this)">
+      <span class="nav-icon">📊</span> Dados
+    </div>
   </nav>
 
   <!-- Content -->
@@ -387,6 +390,37 @@ body.dark{--bg:#1a1a1e;--bg2:#242428;--bg3:#2e2e32;--text:#e8e8e4;--text2:#a0a09
       </div>
     </div>
 
+    <!-- DADOS -->
+    <div id="panel-dados" class="admin-panel">
+      <h2>Dados</h2>
+      <p class="panel-desc">Exportação e edição de dados estruturais</p>
+
+      <div class="acard">
+        <div class="acard-title">Exportar tudo como Excel</div>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:12px">Exporta todas as actividades, Gantt, PDS, contratos e facturas num único ficheiro Excel com múltiplas folhas.</p>
+        <button class="abtn abtn-primary" onclick="exportAllExcel()">↓ Download Excel completo</button>
+      </div>
+
+      <div class="acard">
+        <div class="acard-title">Editar tags — Plano de Acção (N2)</div>
+        <p style="font-size:12px;color:var(--text3);margin-bottom:10px">Renomeia globalmente os valores em todas as actividades e Gantt.</p>
+        <div id="tags-n2-list"></div>
+        <button class="abtn abtn-sm" style="margin-top:8px" onclick="saveTags('n2')">💾 Guardar Planos</button>
+      </div>
+
+      <div class="acard">
+        <div class="acard-title">Editar tags — Owner</div>
+        <div id="tags-owner-list"></div>
+        <button class="abtn abtn-sm" style="margin-top:8px" onclick="saveTags('owner')">💾 Guardar Owners</button>
+      </div>
+
+      <div class="acard">
+        <div class="acard-title">Editar tags — Sponsor</div>
+        <div id="tags-sponsor-list"></div>
+        <button class="abtn abtn-sm" style="margin-top:8px" onclick="saveTags('sponsor')">💾 Guardar Sponsors</button>
+      </div>
+    </div>
+
   </main>
 </div>
 
@@ -452,6 +486,7 @@ function showPanel(id,el){
   if(id==='historico') renderHistorico();
   if(id==='risco') renderRisco();
   if(id==='cores') renderCores();
+  if(id==='dados') initDados();
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
@@ -1067,6 +1102,118 @@ function forceDetectPrograms(){
   }catch(e){
     toast('Erro: '+e.message,'var(--red)');
   }
+}
+
+// ── DADOS PANEL ───────────────────────────────────────────────────────────────
+function initDados(){
+  renderTagList('n2',   'tags-n2-list',    'n2');
+  renderTagList('owner','tags-owner-list', 'owner');
+  renderTagList('sponsor','tags-sponsor-list','sponsor');
+}
+
+function getActData(){
+  try{ const s=localStorage.getItem('pmo_act'); return s?JSON.parse(s):[]; }catch(e){ return []; }
+}
+function getGanttData(){
+  try{ const s=localStorage.getItem('pmo_gantt_data'); return s?JSON.parse(s):[]; }catch(e){ return []; }
+}
+function getPdsData(){
+  try{ const s=localStorage.getItem('pmo_pds_data'); return s?JSON.parse(s):[]; }catch(e){ return []; }
+}
+
+function renderTagList(field, containerId, label){
+  const act=getActData();
+  const gantt=getGanttData();
+  const vals=[...new Set([
+    ...act.map(function(d){return d[field]||'';}),
+    ...gantt.map(function(d){return d[field]||'';})
+  ].filter(Boolean))].sort();
+  const wrap=document.getElementById(containerId);
+  if(!vals.length){ wrap.innerHTML='<div style="color:var(--text3);font-size:12px">Sem valores.</div>'; return; }
+  wrap.innerHTML=vals.map(function(v){
+    return '<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">'
+      +'<input class="ainput" style="flex:1" data-orig="'+esc(v)+'" value="'+esc(v)+'">'
+      +'</div>';
+  }).join('');
+}
+
+function saveTags(field){
+  const containerId='tags-'+field+'-list';
+  const wrap=document.getElementById(containerId); if(!wrap) return;
+  const inputs=wrap.querySelectorAll('input[data-orig]');
+  const renames={};
+  inputs.forEach(function(inp){
+    const orig=inp.dataset.orig, newVal=inp.value.trim();
+    if(orig&&newVal&&orig!==newVal) renames[orig]=newVal;
+  });
+  if(!Object.keys(renames).length){ toast('Sem alterações.','var(--text2)'); return; }
+
+  const act=getActData();
+  const gantt=getGanttData();
+  act.forEach(function(d){ if(renames[d[field]]) d[field]=renames[d[field]]; });
+  gantt.forEach(function(d){ if(renames[d[field]]) d[field]=renames[d[field]]; });
+  try{
+    localStorage.setItem('pmo_act', JSON.stringify(act));
+    localStorage.setItem('pmo_gantt_data', JSON.stringify(gantt));
+    toast('Tags actualizadas. Volta à plataforma para ver o efeito.','#3B6D11');
+    renderTagList(field, containerId, field);
+  }catch(e){ toast('Erro ao guardar: '+e.message,'var(--red)'); }
+}
+
+function exportAllExcel(){
+  if(typeof XLSX==='undefined'){ toast('Biblioteca XLSX não disponível.','var(--red)'); return; }
+  const act=getActData();
+  const gantt=getGanttData();
+  const pds=getPdsData();
+
+  const wb=XLSX.utils.book_new();
+
+  // Sheet 1: Actividades
+  const actRows=[['ID0','ID1','ID2','Nome','N0','N1','N2','N3','% Exec','% Prev','Status','Início Base','Fim Base','Início Real','Fim Real','Owner','Sponsor']];
+  act.forEach(function(d){
+    actRows.push([d.id0||'',d.id1||'',d.id2||'',d.nome||'',d.n0||'',d.n1||'',d.n2||'',d.n3||'',
+      d.pct||0,d.pct_prev||0,d.status||'',d.bs||'',d.bf||'',d.rs||'',d.rf||'',d.owner||'',d.sponsor||'']);
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(actRows), 'Actividades');
+
+  // Sheet 2: Gantt
+  const ganttRows=[['Nível','Nome','N0','N1','N2','N3','% Exec','% Prev','Status','Início Base','Fim Base','Início Real','Fim Real','Owner','Sponsor']];
+  gantt.forEach(function(d){
+    ganttRows.push([d.nivel||'',d.nome||'',d.n0||'',d.n1||'',d.n2||'',d.n3||'',
+      d.pct||0,d.pct_prev||0,d.status||'',d.bs||'',d.bf||'',d.rs||'',d.rf||'',d.owner||'',d.sponsor||'']);
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ganttRows), 'Gantt');
+
+  // Sheet 3: Contratos
+  const ctRows=[['ID0','ID2','Plano','Fornecedor','Descrição','Categoria','Moeda','Câmbio','Valor Total','Data Adj.','Adenda','Adenda a']];
+  pds.forEach(function(p){
+    (p.finances&&p.finances.contratos||[]).forEach(function(ct){
+      ctRows.push([p.id0||'',p.id2||'',p.plano||'',ct.fornecedor||'',ct.descricao||'',ct.categoria||'',
+        ct.moeda||'',ct.cambio_ref||'',ct.valor_total||0,ct.data_adj||'',ct.adenda||'',ct.adenda_de||'']);
+    });
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ctRows), 'Contratos');
+
+  // Sheet 4: Facturas
+  const facRows=[['ID0','ID2','Plano','Fornecedor','# Contrato','Moeda','Câmbio','Valor','Data Emissão','Data Vencimento','Estado']];
+  pds.forEach(function(p){
+    const contratos=p.finances&&p.finances.contratos||[];
+    (p.finances&&p.finances.facturas||[]).forEach(function(fac){
+      const ct=contratos.find(function(c){return c.id===fac.contrato_id;})||{};
+      facRows.push([p.id0||'',p.id2||'',p.plano||'',fac.fornecedor||ct.fornecedor||'',
+        fac.ref||'',fac.moeda||'',fac.cambio||'',fac.valor||0,
+        fac.data_emissao||'',fac.data_vencimento||'',fac.estado||'']);
+    });
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(facRows), 'Facturas');
+
+  // Sheet 5: PDS
+  const pdsRows=[['ID0','ID2','Plano','N0','N1']];
+  pds.forEach(function(p){ pdsRows.push([p.id0||'',p.id2||'',p.plano||'',p.n0||'',p.n1||'']); });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(pdsRows), 'PDS');
+
+  XLSX.writeFile(wb,'strategos_export_'+new Date().toISOString().split('T')[0]+'.xlsx');
+  toast('Excel exportado com sucesso.','#3B6D11');
 }
 </script>
 </body>
