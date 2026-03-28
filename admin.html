@@ -175,6 +175,9 @@ body.dark{--bg:#1a1a1e;--bg2:#242428;--bg3:#2e2e32;--text:#e8e8e4;--text2:#a0a09
     <div class="admin-nav-item" data-panel="outros" onclick="showPanel('outros',this)">
       <span class="nav-icon">⚙️</span> Outros
     </div>
+    <div class="admin-nav-item" data-panel="utilizadores" onclick="showPanel('utilizadores',this)">
+      <span class="nav-icon">👥</span> Utilizadores
+    </div>
     <div class="admin-nav-item" data-panel="dados" onclick="showPanel('dados',this)">
       <span class="nav-icon">📊</span> Dados
     </div>
@@ -390,6 +393,27 @@ body.dark{--bg:#1a1a1e;--bg2:#242428;--bg3:#2e2e32;--text:#e8e8e4;--text2:#a0a09
       </div>
     </div>
 
+    <!-- UTILIZADORES -->
+    <div id="panel-utilizadores" class="admin-panel">
+      <h2>Utilizadores</h2>
+      <p class="panel-desc">Gestão de perfis de acesso e utilizadores do dashboard</p>
+
+      <div class="acard">
+        <div class="acard-title">Perfis de acesso
+          <button class="abtn abtn-sm" style="margin-left:auto" onclick="addPerfil()">+ Novo perfil</button>
+        </div>
+        <p style="font-size:12px;color:var(--text3);margin-bottom:12px">Cada perfil define o acesso a cada componente: <b>Sem acesso</b>, <b>Leitura</b> ou <b>Edição</b>.</p>
+        <div id="perfis-list"></div>
+      </div>
+
+      <div class="acard">
+        <div class="acard-title">Utilizadores
+          <button class="abtn abtn-sm" style="margin-left:auto" onclick="addUser()">+ Novo utilizador</button>
+        </div>
+        <div id="users-list"></div>
+      </div>
+    </div>
+
     <!-- DADOS -->
     <div id="panel-dados" class="admin-panel">
       <h2>Dados</h2>
@@ -419,6 +443,13 @@ body.dark{--bg:#1a1a1e;--bg2:#242428;--bg3:#2e2e32;--text:#e8e8e4;--text2:#a0a09
         <div id="tags-sponsor-list"></div>
         <button class="abtn abtn-sm" style="margin-top:8px" onclick="saveTags('sponsor')">💾 Guardar Sponsors</button>
       </div>
+
+      <div class="acard">
+        <div class="acard-title">Rótulos dos filtros por Programa</div>
+        <p style="font-size:12px;color:var(--text3);margin-bottom:10px">Define como se chamam os filtros N1, N2, Owner e Sponsor em cada programa. Deixar em branco usa o valor por defeito.</p>
+        <div id="rotulos-wrap"></div>
+        <button class="abtn abtn-sm" style="margin-top:10px" onclick="saveRotulos()">💾 Guardar rótulos</button>
+      </div>
     </div>
 
   </main>
@@ -429,7 +460,7 @@ body.dark{--bg:#1a1a1e;--bg2:#242428;--bg3:#2e2e32;--text:#e8e8e4;--text2:#a0a09
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 // ── CONFIG ────────────────────────────────────────────────────────────────────
-const DEF={title:'Strategos',subtitle:'Plano Estratégico',refDate:'',logo:'',
+const DEF={title:'Strategos',subtitle:'Plano Estratégico',refDate:'',logo:'',filterLabels:{},
   colors:[
     {label:'Cor primária',key:'--navy',val:'#002E5E'},
     {label:'Cor secundária',key:'--green',val:'#95BB42'},
@@ -450,6 +481,7 @@ let CFG=JSON.parse(JSON.stringify(DEF));
 function loadCfg(){ try{ const s=localStorage.getItem('pmo_cfg'); if(s) CFG=JSON.parse(s); }catch(e){} }
 function saveCfg(){ try{ localStorage.setItem('pmo_cfg',JSON.stringify(CFG)); }catch(e){} }
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 
 // ── LOCK ─────────────────────────────────────────────────────────────────────
 loadCfg();
@@ -486,6 +518,7 @@ function showPanel(id,el){
   if(id==='historico') renderHistorico();
   if(id==='risco') renderRisco();
   if(id==='cores') renderCores();
+  if(id==='utilizadores') initUtilizadores();
   if(id==='dados') initDados();
 }
 
@@ -1104,11 +1137,185 @@ function forceDetectPrograms(){
   }
 }
 
+// ── UTILIZADORES PANEL ────────────────────────────────────────────────────────
+const ALL_TABS_DEF=[
+  {id:'resumo',label:'Resumo Executivo'},
+  {id:'actividades',label:'Actividades'},
+  {id:'gantt',label:'Gantt'},
+  {id:'evolucao',label:'Evolução'},
+  {id:'pds',label:'Ponto de Situação'},
+  {id:'exec-fin',label:'Execução Financeira'},
+  {id:'gestao',label:'Gestão de Iniciativas'},
+  {id:'gestao-pds',label:'Gestão PDS'},
+  {id:'gestao-riscos',label:'Gestão de Riscos'},
+  {id:'gestao-financeira',label:'Gestão Financeira'},
+];
+const PERM_OPTS=['none','read','edit'];
+const PERM_LABELS={'none':'Sem acesso','read':'Leitura','edit':'Edição'};
+
+function initUtilizadores(){
+  if(!CFG.profiles) CFG.profiles=[];
+  if(!CFG.users) CFG.users=[];
+  renderPerfis();
+  renderUsersList();
+}
+
+function renderPerfis(){
+  const wrap=document.getElementById('perfis-list');
+  if(!CFG.profiles.length){wrap.innerHTML='<p style="color:var(--text3);font-size:13px">Sem perfis.</p>';return;}
+  let html='';
+  CFG.profiles.forEach(function(prof){
+    html+='<div class="acard" style="margin-bottom:12px;border:1px solid var(--border)">'
+      +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">'
+      +'<input class="ainput" style="font-weight:600;flex:1" data-pid="'+esc(prof.id)+'" data-field="name" value="'+esc(prof.name)+'" placeholder="Nome do perfil">'
+      +'<button class="abtn abtn-sm" style="color:var(--red,#E24B4A)" onclick="deletePerfil(\''+prof.id+'\')">Eliminar</button>'
+      +'</div>'
+      +'<table style="width:100%;border-collapse:collapse;font-size:12px">'
+      +'<thead><tr><th style="text-align:left;padding:4px 8px;color:var(--text2);font-weight:500">Componente</th>'
+      +'<th style="padding:4px 8px;color:var(--text2);font-weight:500;text-align:center">Acesso</th></tr></thead><tbody>';
+    ALL_TABS_DEF.forEach(function(td){
+      const cur=(prof.tabs&&prof.tabs[td.id])||'none';
+      const opts=PERM_OPTS.map(function(o){return'<option value="'+o+'"'+(cur===o?' selected':'')+'>'+PERM_LABELS[o]+'</option>';}).join('');
+      html+='<tr style="border-top:1px solid var(--border)">'
+        +'<td style="padding:5px 8px">'+esc(td.label)+'</td>'
+        +'<td style="padding:4px 8px;text-align:center"><select class="ainput" style="font-size:12px;padding:3px 6px" data-pid="'+esc(prof.id)+'" data-tab="'+td.id+'">'+opts+'</select></td>'
+        +'</tr>';
+    });
+    html+='</tbody></table>'
+      +'<button class="abtn abtn-primary abtn-sm" style="margin-top:10px" onclick="savePerfil(\''+prof.id+'\')">💾 Guardar perfil</button>'
+      +'</div>';
+  });
+  wrap.innerHTML=html;
+}
+
+function addPerfil(){
+  const tabs={};
+  ALL_TABS_DEF.forEach(function(t){tabs[t.id]='read';});
+  CFG.profiles.push({id:uid(),name:'Novo Perfil',tabs:tabs});
+  saveCfg(); renderPerfis();
+}
+
+function savePerfil(pid){
+  const prof=CFG.profiles.find(function(p){return p.id===pid;});
+  if(!prof) return;
+  const nameInp=document.querySelector('input[data-pid="'+pid+'"][data-field="name"]');
+  if(nameInp) prof.name=nameInp.value.trim()||prof.name;
+  document.querySelectorAll('select[data-pid="'+pid+'"][data-tab]').forEach(function(sel){
+    if(!prof.tabs) prof.tabs={};
+    prof.tabs[sel.dataset.tab]=sel.value;
+  });
+  saveCfg(); toast('Perfil guardado.'); renderUsersList();
+}
+
+function deletePerfil(pid){
+  const inUse=(CFG.users||[]).some(function(u){return u.profileId===pid;});
+  if(inUse){alert('Este perfil está atribuído a utilizadores. Remove ou reatribui primeiro.');return;}
+  CFG.profiles=CFG.profiles.filter(function(p){return p.id!==pid;});
+  saveCfg(); renderPerfis();
+}
+
+function renderUsersList(){
+  const wrap=document.getElementById('users-list');
+  if(!CFG.users.length){wrap.innerHTML='<p style="color:var(--text3);font-size:13px">Sem utilizadores.</p>';return;}
+  const profOpts=CFG.profiles.map(function(p){return'<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>';}).join('');
+  let html='<table style="width:100%;border-collapse:collapse;font-size:13px">'
+    +'<thead><tr style="border-bottom:2px solid var(--border)">'
+    +'<th style="padding:6px 8px;text-align:left;color:var(--text2)">Nome</th>'
+    +'<th style="padding:6px 8px;text-align:left;color:var(--text2)">Username</th>'
+    +'<th style="padding:6px 8px;text-align:left;color:var(--text2)">Password</th>'
+    +'<th style="padding:6px 8px;text-align:left;color:var(--text2)">Perfil</th>'
+    +'<th></th>'
+    +'</tr></thead><tbody>';
+  CFG.users.forEach(function(u){
+    const pOpts=CFG.profiles.map(function(p){
+      return'<option value="'+esc(p.id)+'"'+(u.profileId===p.id?' selected':'')+'>'+esc(p.name)+'</option>';
+    }).join('');
+    html+='<tr style="border-bottom:1px solid var(--border)">'
+      +'<td style="padding:5px 6px"><input class="ainput" data-uid="'+esc(u.id)+'" data-field="name" value="'+esc(u.name||'')+'" placeholder="Nome"></td>'
+      +'<td style="padding:5px 6px"><input class="ainput" data-uid="'+esc(u.id)+'" data-field="username" value="'+esc(u.username||'')+'"></td>'
+      +'<td style="padding:5px 6px"><input class="ainput" type="password" data-uid="'+esc(u.id)+'" data-field="password" value="'+esc(u.password||'')+'" placeholder="••••••"></td>'
+      +'<td style="padding:5px 6px"><select class="ainput" data-uid="'+esc(u.id)+'" data-field="profileId">'+pOpts+'</select></td>'
+      +'<td style="padding:5px 6px;text-align:center">'
+      +'<button class="abtn abtn-sm" onclick="saveUser(\''+u.id+'\')">💾</button> '
+      +'<button class="abtn abtn-sm" style="color:var(--red,#E24B4A)" onclick="deleteUser(\''+u.id+'\')">✕</button>'
+      +'</td>'
+      +'</tr>';
+  });
+  html+='</tbody></table>';
+  wrap.innerHTML=html;
+}
+
+function addUser(){
+  const defaultProfile=CFG.profiles[0];
+  CFG.users.push({id:uid(),name:'',username:'',password:'',profileId:defaultProfile?defaultProfile.id:''});
+  saveCfg(); renderUsersList();
+}
+
+function saveUser(uid_val){
+  const u=CFG.users.find(function(x){return x.id===uid_val;});
+  if(!u) return;
+  document.querySelectorAll('[data-uid="'+uid_val+'"]').forEach(function(inp){
+    const f=inp.dataset.field;
+    if(f) u[f]=inp.value;
+  });
+  saveCfg(); toast('Utilizador guardado.');
+}
+
+function deleteUser(uid_val){
+  if(!confirm('Eliminar utilizador?')) return;
+  CFG.users=CFG.users.filter(function(u){return u.id!==uid_val;});
+  saveCfg(); renderUsersList();
+}
+
 // ── DADOS PANEL ───────────────────────────────────────────────────────────────
 function initDados(){
   renderTagList('n2',   'tags-n2-list',    'n2');
   renderTagList('owner','tags-owner-list', 'owner');
   renderTagList('sponsor','tags-sponsor-list','sponsor');
+  initRotulos();
+}
+
+function initRotulos(){
+  const raw=localStorage.getItem('pmo_gantt_data')||localStorage.getItem('pmo_act');
+  const data=raw?JSON.parse(raw):[];
+  const n0s=[...new Set(data.map(function(r){return r.n0;}).filter(Boolean))].sort();
+  const wrap=document.getElementById('rotulos-wrap');
+  if(!n0s.length){wrap.innerHTML='<p style="color:var(--text3);font-size:13px">Sem dados carregados.</p>';return;}
+  if(!CFG.filterLabels) CFG.filterLabels={};
+  const dims=['n1','n2','owner','sponsor'];
+  const defs={n1:'Eixo',n2:'Plano de Acção',owner:'Owner',sponsor:'Sponsor'};
+  let html='<table style="width:100%;border-collapse:collapse;font-size:13px">'
+    +'<thead><tr style="border-bottom:2px solid var(--border)">'
+    +'<th style="padding:6px 8px;text-align:left;color:var(--text2)">Programa</th>'
+    +'<th style="padding:6px 8px;text-align:center;color:var(--text2)">Eixo (N1)</th>'
+    +'<th style="padding:6px 8px;text-align:center;color:var(--text2)">Plano (N2)</th>'
+    +'<th style="padding:6px 8px;text-align:center;color:var(--text2)">Owner</th>'
+    +'<th style="padding:6px 8px;text-align:center;color:var(--text2)">Sponsor</th>'
+    +'</tr></thead><tbody>';
+  n0s.forEach(function(n0){
+    const lbl=CFG.filterLabels[n0]||{};
+    html+='<tr style="border-bottom:1px solid var(--border)">'
+      +'<td style="padding:6px 8px;font-weight:600;white-space:nowrap">'+esc(n0)+'</td>';
+    dims.forEach(function(d){
+      html+='<td style="padding:4px 6px"><input class="ainput" data-n0="'+esc(n0)+'" data-dim="'+d
+        +'" style="width:100%;text-align:center" value="'+esc(lbl[d]||'')+'" placeholder="'+esc(defs[d])+'"></td>';
+    });
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+  wrap.innerHTML=html;
+}
+
+function saveRotulos(){
+  if(!CFG.filterLabels) CFG.filterLabels={};
+  document.querySelectorAll('#rotulos-wrap input[data-n0]').forEach(function(inp){
+    const n0=inp.dataset.n0, dim=inp.dataset.dim, val=inp.value.trim();
+    if(!CFG.filterLabels[n0]) CFG.filterLabels[n0]={};
+    if(val) CFG.filterLabels[n0][dim]=val;
+    else delete CFG.filterLabels[n0][dim];
+  });
+  saveCfg();
+  toast('Rótulos guardados.');
 }
 
 function getActData(){
